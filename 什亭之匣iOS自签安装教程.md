@@ -70,19 +70,11 @@
 
 ## 三、第一步：获取 ipa 文件
 
-### 方式 A：GitHub Releases（推荐，无需登录）
+### GitHub Releases（推荐，无需登录）
 
 1. 打开 <https://github.com/MilkTea0329/ba-student-dex/releases>
 2. 找到最新的 **V1.0.0**，在 `Assets` 里点 **`StudentDex.ipa`** 下载
 3. 得到文件：`StudentDex.ipa`（约 40 MB）
-
-### 方式 B：从构建产物下载（需要 GitHub 账号）
-
-1. 打开仓库 → **Actions** → 点最近一次**绿色对勾**的运行
-2. 页面拉到最底部 **Artifacts** → 点 **`StudentDex-unsigned-ipa`**
-3. 下载得到 `StudentDex-unsigned-ipa.zip`，**解压**出里面的 `StudentDex.ipa`
-
-> ⚠️ 解压后请确认文件名是 `StudentDex.ipa`，而不是被重复压缩的 `StudentDex.ipa.zip`。
 
 ---
 
