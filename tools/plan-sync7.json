@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html?keep=1",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "98-idempotent", "wait": 2600, "after": 200,
+      "js": "window.BASync.check({force:true}).then(function(r){return {added:r.added,total:r.total,count:document.querySelector('.count').textContent,storeKB:Math.round((localStorage.getItem('ba_test_store')||'').length/1024)}})" },
+    { "name": "99-more", "after": 500, "wait": 200,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();return {status:document.getElementById('sync-status').textContent,rows:Array.from(document.querySelectorAll('.rowlink')).slice(0,4).map(function(e){return e.textContent.replace(/\\s+/g,' ').trim()})}})()" }
+  ]
+}

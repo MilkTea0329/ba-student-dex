@@ -11,6 +11,7 @@ const ICON_DEST = path.join(ROOT, 'StudentDex', 'Resources', 'Assets.xcassets', 
 function copyDir(from, to) {
   fs.mkdirSync(to, { recursive: true });
   for (const f of fs.readdirSync(from)) {
+    if (f.charAt(0) === '_') continue; // dev/test-only files (e.g. _test.html)
     const a = path.join(from, f);
     const b = path.join(to, f);
     if (fs.statSync(a).isDirectory()) copyDir(a, b);

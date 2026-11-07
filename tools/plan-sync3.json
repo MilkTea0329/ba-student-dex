@@ -1,0 +1,19 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "60-first-sync", "wait": 2200, "after": 300,
+      "js": "new Promise(function(res){var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);res(st.lastResult);}},400);})" },
+    { "name": "61-second-check", "after": 300, "wait": 200,
+      "js": "window.BASync.check({force:true}).then(function(r){return {second:r,indexCount:document.querySelector('.count').textContent}})" },
+    { "name": "62-more", "after": 600, "wait": 200,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();return {status:document.getElementById('sync-status').textContent, rows:Array.from(document.querySelectorAll('.rowlink')).map(function(e){return e.textContent.replace(/\\s+/g,' ').trim()}).slice(0,6)}})()" },
+    { "name": "63-after-reload", "url": "http://127.0.0.1:8123/_test.html", "wait": 2500, "after": 300,
+      "js": "(function(){return {cards:document.querySelectorAll('.card').length,count:document.querySelector('.count').textContent,first:document.querySelector('.card .nm').textContent,newBadge:document.querySelectorAll('.newbadge').length}})()" },
+    { "name": "64-plain-index", "url": "http://127.0.0.1:8123/index.html", "wait": 1800, "after": 300,
+      "js": "(function(){return {hasBridge:!!(window.webkit&&window.webkit.messageHandlers),cards:document.querySelectorAll('.card').length,count:document.querySelector('.count').textContent}})()" }
+  ]
+}

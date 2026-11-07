@@ -1,0 +1,11 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "80-diag", "wait": 2500, "after": 200,
+      "js": "new Promise(function(res){var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);var raw=localStorage.getItem('ba_test_store');res({added:st.lastResult.added,storeLen:raw?raw.length:0,storeHead:raw?raw.slice(0,40):''});}},400);})" }
+  ]
+}

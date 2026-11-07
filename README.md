@@ -7,6 +7,8 @@
 <https://www.gamekee.com/ba/second/23941>
 
 > 收录 **281 名学生 / 16 所学院 / 511 张立绘 / 2190 个图标**，全部离线打包，安装后无需联网。
+>
+> 另外，App **每次启动会在后台向 gamekee 检查一次是否有新实装学生**，有就自动下载并加入图鉴（详见第 8 节）。
 
 <p align="center">
   <img src="docs/screenshots/list.png" width="250" alt="学生列表">
@@ -170,7 +172,35 @@ node tools/sync_web.js     # 同步进 iOS 工程资源
 
 ---
 
-## 7. 免责声明
+## 7. 自动同步新实装学生
+
+App 启动约 1.2 秒后，会**在后台静默**向 gamekee 查一次学生列表；发现新学生就下载并加入图鉴，列表里会带 `NEW` 角标（保留 7 天）。
+
+**为什么必须走原生**：页面由 `file://` 加载，直接请求 gamekee 会被 CORS 拦（接口还要 `game-alias` 自定义头），图片 CDN 还校验 `Referer` —— 浏览器侧都发不出来。所以：
+
+```
+网页 (sync.js)  --postMessage-->  Swift BridgeHandler (URLSession)  -->  gamekee
+                <--__baRPC(id, status, base64)--
+```
+
+| 项目 | 说明 |
+| --- | --- |
+| 触发时机 | 每次启动 + 「更多 → 立即检查新学生」手动触发 |
+| 节流 | 同一次运行内 30 分钟内不重复请求 |
+| 单次流量 | 词条树约 0.77 MB；每个新学生约 0.4–0.6 MB（资料 + 压缩后的头像/技能/材料图标） |
+| 同步内容 | 全部结构化资料、头像、技能图标、材料图标、语音；**不含立绘**（体积太大，详情页显示「暂无立绘」） |
+| 存储 | `Documents/ba-sync-store.json`（原生写入，不依赖 IndexedDB/localStorage） |
+| 失败处理 | 静默忽略，继续用内置数据；不会弹错误、不会卡启动 |
+| 上限 | 一次最多处理 6 名新学生，多出来的下次启动继续 |
+
+新增学生的「站位 / 战术作用」在 WIKI 上是文字图片，映射表里没有对应条目时，界面会**直接显示那张小图**（而不是留空）。
+
+代码位置：`web/sync.js`（调度 + 解析）、`web/parser-core.js`（与 `crawl/parse.js` 共用的解析器）、
+`StudentDex/Sources/WebShell.swift`（`BridgeHandler`，只允许请求 3 个 gamekee 域名）。
+
+---
+
+## 8. 免责声明
 
 本项目为玩家自制的非官方资料查询工具，与 NEXON Games / Yostar 无任何关联。
 学生资料、立绘、语音文本版权归原公司及 GameKee WIKI 贡献者所有，

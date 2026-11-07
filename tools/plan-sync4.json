@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "70-first", "wait": 2200, "after": 300,
+      "js": "new Promise(function(res){var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);res(st.lastResult);}},400);})" },
+    { "name": "71-second-force", "after": 300, "wait": 200,
+      "js": "window.BASync.check({force:true}).then(function(r){return {added:r.added,total:r.total,count:document.querySelector('.count').textContent,badges:document.querySelectorAll('.newbadge').length}})" },
+    { "name": "72-reload-keep", "url": "http://127.0.0.1:8123/_test.html?keep=1", "wait": 2600, "after": 300,
+      "js": "(function(){return {cards:document.querySelectorAll('.card').length,count:document.querySelector('.count').textContent,first:document.querySelector('.card .nm').textContent,badges:document.querySelectorAll('.newbadge').length,lastResult:window.BASync.state.lastResult}})()" }
+  ]
+}

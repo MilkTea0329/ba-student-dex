@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>sync test</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="boot" style="position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:#eef3fa">loading…</div>
+  <header id="topbar" class="topbar"></header>
+  <main id="view" class="view"></main>
+  <nav id="tabbar" class="tabbar"></nav>
+  <div id="detail" class="detail"></div>
+  <div id="sheet" class="sheet-root" hidden></div>
+
+  <script>
+    /* 模拟原生桥：fetch 走本地 8899 stub，store 用 localStorage */
+    function b64encode(str) {
+      var bytes = new TextEncoder().encode(str || '');
+      var bin = '';
+      var CH = 0x8000;
+      for (var i = 0; i < bytes.length; i += CH) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+      }
+      return btoa(bin);
+    }
+    window.webkit = { messageHandlers: { ba: { postMessage: function (msg) {
+      if (msg.op === 'store') {
+        try {
+          if (msg.action === 'save') localStorage.setItem('ba_test_store', msg.value || '');
+          var v = localStorage.getItem('ba_test_store') || '';
+          window.__baRPC(msg.id, 200, b64encode(v));
+        } catch (e) {
+          window.__baRPC(msg.id, 500, '');
+        }
+        return;
+      }
+      fetch('http://127.0.0.1:8899/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg)
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        window.__baRPC(msg.id, j.status, j.b64);
+      }).catch(function () { window.__baRPC(msg.id, 0, ''); });
+    } } } };
+  </script>
+
+  <script src="data.js"></script>
+  <script>
+    /* 模拟「内置数据比 WIKI 旧」：把拉娜(225984) 从内置数据里拿掉
+       带 ?keep=1 时保留上次同步的结果，用来验证持久化 */
+    window.BA_INDEX = window.BA_INDEX.filter(function (s) { return s.id !== 225984; });
+    delete window.BA_STUDENTS[225984];
+    if (location.search.indexOf('keep=1') < 0) localStorage.removeItem('ba_test_store');
+  </script>
+  <script src="parser-core.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

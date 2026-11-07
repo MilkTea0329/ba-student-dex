@@ -2,7 +2,8 @@
 (function () {
   'use strict';
 
-  const INDEX = window.BA_INDEX || [];
+  // 内置数据（打包进 App），联网同步到的新学生会追加到这里
+  const INDEX = (window.BA_INDEX || []).slice();
   const STUDENTS = window.BA_STUDENTS || {};
   const AVATARS = window.BA_AVATARS || null;
   const BY_ID = {};
@@ -80,6 +81,19 @@
     return 'avatars/' + id + '.jpg';
   }
 
+  // 同步来的学生头像存的是 data URI
+  function avatarOf(s) {
+    if (s && s.avatar) return s.avatar;
+    return avatar(s ? s.id : '');
+  }
+
+  // 同步来的学生没有「站位 / 战术作用」的文字映射时，直接显示 WIKI 上的文字图片
+  function tagOrImage(text, image, height) {
+    if (text) return esc(text);
+    if (image) return '<img src="' + image + '" alt="" style="height:' + (height || 14) + 'px;width:auto;max-width:58px;object-fit:contain;display:inline-block;vertical-align:-2px">';
+    return '—';
+  }
+
   function stars(n) { return '★'.repeat(n || 0); }
 
   function fmtNum(v) {
@@ -127,16 +141,23 @@
     return out;
   }
 
-  const FACETS = {
-    rarity: { label: '稀有度', values: [3, 2, 1], fmt: function (v) { return v + '★'; } },
-    school: { label: '学院', values: uniq(INDEX.map(function (s) { return s.school; })) },
-    attack: { label: '攻击类型', values: uniq(INDEX.map(function (s) { return s.attack; })) },
-    defense: { label: '防御类型', values: uniq(INDEX.map(function (s) { return s.defense; })) },
-    position: { label: '站位', values: ['FRONT', 'MIDDLE', 'BACK'], fmt: function (v) { return POSITION_CN[v]; } },
-    role: { label: '作用', values: uniq(INDEX.map(function (s) { return s.role; })) },
-    tactic: { label: '战术作用', values: ['STRIKER', 'SPECIAL'], fmt: function (v) { return TACTIC_CN[v]; } },
-    weapon: { label: '武器', values: uniq(INDEX.map(function (s) { return s.weaponType; })) },
-  };
+  // 筛选面板的候选项依赖学生集合，同步到新学生后需要重建
+  let FACETS = null;
+
+  function buildFacets() {
+    FACETS = {
+      rarity: { label: '稀有度', values: [3, 2, 1], fmt: function (v) { return v + '★'; } },
+      school: { label: '学院', values: uniq(INDEX.map(function (s) { return s.school; })) },
+      attack: { label: '攻击类型', values: uniq(INDEX.map(function (s) { return s.attack; })) },
+      defense: { label: '防御类型', values: uniq(INDEX.map(function (s) { return s.defense; })) },
+      position: { label: '站位', values: ['FRONT', 'MIDDLE', 'BACK'], fmt: function (v) { return POSITION_CN[v]; } },
+      role: { label: '作用', values: uniq(INDEX.map(function (s) { return s.role; })) },
+      tactic: { label: '战术作用', values: ['STRIKER', 'SPECIAL'], fmt: function (v) { return TACTIC_CN[v]; } },
+      weapon: { label: '武器', values: uniq(INDEX.map(function (s) { return s.weaponType; })) },
+    };
+  }
+
+  buildFacets();
 
   function activeFilterCount() {
     return Object.keys(state.filters).reduce(function (n, k) { return n + state.filters[k].length; }, 0);
@@ -194,11 +215,16 @@
   function filtered() { return sortList(INDEX.filter(matches)); }
 
   /* ----------------------------------------------------------------- list */
+  function isNewStudent(s) {
+    return !!(s && s.isNew && s.syncedAt && (Date.now() - s.syncedAt) < 7 * 864e5);
+  }
+
   function cardHTML(s) {
     return '' +
       '<button class="card" data-act="open" data-id="' + s.id + '">' +
-        '<img loading="lazy" src="' + avatar(s.id) + '" alt="' + esc(s.name) + '">' +
+        '<img loading="lazy" src="' + avatarOf(s) + '" alt="' + esc(s.name) + '">' +
         '<span class="scrim"></span>' +
+        (isNewStudent(s) ? '<span class="newbadge">NEW</span>' : '') +
         '<span class="meta">' +
           '<span class="nm">' + esc(s.name) + '</span>' +
           '<span class="sub">' + esc(shortSchool(s.school)) + ' · ' + esc(s.role) + '</span>' +
@@ -252,7 +278,7 @@
       const arr = groups[n].slice().sort(function (a, b) { return b.rarity - a.rarity || a.name.localeCompare(b.name); });
       html += '<button class="school-card" data-act="school" data-name="' + esc(n) + '">' +
         '<span class="avatars">' + arr.slice(0, 3).map(function (s) {
-          return '<img src="' + avatar(s.id) + '" alt="">';
+          return '<img src="' + avatarOf(s) + '" alt="">';
         }).join('') + '</span>' +
         '<span class="col"><span class="nm">' + esc(n) + '</span><span class="cnt">' + arr.length + ' 名学生</span></span>' +
         '<span class="arrow">›</span>' +
@@ -271,6 +297,25 @@
   }
 
   /* ----------------------------------------------------------------- more */
+  function syncStatusText() {
+    if (!window.BASync || !window.BASync.available()) return '需在 App 内使用';
+    const st = window.BASync.state;
+    if (st.running) return '检查中…';
+    const r = st.lastResult;
+    if (!r) return '点此检查';
+    if (!r.ok) return '检查失败';
+    if (r.added) return '新增 ' + r.added + ' 名';
+    return '已是最新';
+  }
+
+  function lastCheckText() {
+    const st = window.BASync && window.BASync.state;
+    if (!st || !st.lastCheck) return '—';
+    const d = new Date(st.lastCheck);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
   function moreView() {
     const schools = uniq(INDEX.map(function (s) { return s.school; })).length;
     const r3 = INDEX.filter(function (s) { return s.rarity === 3; }).length;
@@ -281,6 +326,13 @@
         '<div class="stat-card"><div class="n">' + INDEX.length + '</div><div class="l">实装学生</div></div>' +
         '<div class="stat-card"><div class="n">' + r3 + '</div><div class="l">3★ 学生</div></div>' +
         '<div class="stat-card"><div class="n">' + schools + '</div><div class="l">所属学院</div></div>' +
+      '</div>' +
+      '<div class="section-title">数据更新</div>' +
+      '<div class="panel">' +
+        '<button class="rowlink" data-act="sync-now" style="width:100%;text-align:left">' +
+          '<span>立即检查新学生</span><span class="r"><span id="sync-status">' + syncStatusText() + '</span> ›</span></button>' +
+        '<div class="rowlink"><span>上次检查</span><span class="r">' + lastCheckText() + '</span></div>' +
+        '<div class="rowlink"><span>自动检查</span><span class="r">每次启动 · 30 分钟内不重复</span></div>' +
       '</div>' +
       '<div class="section-title">关于</div>' +
       '<div class="panel">' +
@@ -293,6 +345,7 @@
       '<div class="panel"><div class="panel-body" style="font-size:12.5px;line-height:1.7;color:var(--sub)">' +
         '本应用为玩家自制的非官方资料查询工具，学生资料、立绘与语音文本版权归 NEXON Games / Yostar 及原 WIKI 贡献者所有。' +
         '数据整理自 gamekee.com 蔚蓝档案 WIKI 的「游戏图鉴 · 实装学生」，仅用于学习交流，请勿用于商业用途。' +
+        '新学生的资料由 App 启动时自动同步，图片为压缩后的离线副本。' +
       '</div></div>' +
       '<div style="height:20px"></div>';
   }
@@ -303,9 +356,9 @@
     let html = '';
     html += '<div class="hero-block">';
     html += '<div class="hero">' +
-      '<img class="bg" src="' + avatar(s.id) + '" alt="">' +
+      '<img class="bg" src="' + avatarOf(s) + '" alt="">' +
       '<span class="scrim"></span>' +
-      '<img class="art" src="' + avatar(s.id) + '" alt="">' +
+      '<img class="art" src="' + avatarOf(s) + '" alt="">' +
       '<button class="navbtn back" data-act="back">' + ICON.back + '</button>' +
       '<button class="navbtn fav ' + (isFav ? 'on' : '') + '" data-act="fav" data-id="' + s.id + '">' + (isFav ? ICON.heartFill : ICON.heart) + '</button>' +
       '</div>';
@@ -318,8 +371,8 @@
         '<span class="tag solid" style="background:' + atkColor(s.attack) + '">' + esc(s.attack) + '</span>' +
         '<span class="tag" style="color:' + defColor(s.defense) + ';border-color:' + defColor(s.defense) + '55">' + esc(s.defense) + '</span>' +
         '<span class="tag" style="color:' + roleColor(s.role) + '">' + esc(s.role) + '</span>' +
-        '<span class="tag">' + esc(POSITION_CN[s.position] || s.position) + '</span>' +
-        '<span class="tag">' + esc(TACTIC_CN[s.tactic] || s.tactic) + '</span>' +
+        '<span class="tag">' + tagOrImage(POSITION_CN[s.position], s.positionImage, 12) + '</span>' +
+        '<span class="tag">' + tagOrImage(TACTIC_CN[s.tactic], s.tacticImage, 12) + '</span>' +
       '</div>' +
     '</div>' +
     '</div>';
@@ -364,8 +417,8 @@
     html += secTitle('基础信息');
     const kv = [
       ['稀有度', stars(s.rarity)],
-      ['战术作用', TACTIC_CN[s.tactic] || '—'],
-      ['站位', POSITION_CN[s.position] || '—'],
+      ['战术作用', tagOrImage(TACTIC_CN[s.tactic], s.tacticImage, 11)],
+      ['站位', tagOrImage(POSITION_CN[s.position], s.positionImage, 11)],
       ['攻击类型', s.attack],
       ['防御类型', s.defense],
       ['武器类型', s.weaponType || '—'],
@@ -375,7 +428,9 @@
       ['声优', fmtCV(s.profile && s.profile.cv) || '—'],
     ];
     html += '<div class="panel"><div class="kvgrid">' + kv.map(function (r) {
-      return '<div class="cell"><div class="k">' + r[0] + '</div><div class="v">' + esc(String(r[1]).replace(/\s*\n\s*/g, ' / ')) + '</div></div>';
+      const raw = String(r[1] == null ? '' : r[1]);
+      const body = raw.indexOf('<img') === 0 ? raw : esc(raw.replace(/\s*\n\s*/g, ' / '));
+      return '<div class="cell"><div class="k">' + r[0] + '</div><div class="v">' + body + '</div></div>';
     }).join('') + '</div></div>';
 
     html += secTitle('地形适应');
@@ -790,6 +845,22 @@
       renderSheet();
       return;
     }
+    if (act === 'sync-now') {
+      if (!window.BASync || !window.BASync.available()) { toast('联网同步需在 App 内使用'); return; }
+      const st = document.getElementById('sync-status');
+      if (st) st.textContent = '检查中…';
+      window.BASync.check({ force: true, known: knownIds() }).then(function (r) {
+        if (r && r.ok && r.added) {
+          afterSync(r);
+        } else if (r && r.ok) {
+          toast('已是最新，共 ' + (r.total || INDEX.length) + ' 名学生');
+        } else {
+          toast('检查失败：' + ((r && r.error) || '网络错误'));
+        }
+        if (!state.detail) render();
+      });
+      return;
+    }
     if (act === 'dt') { state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
     if (act === 'vcat') { state.voiceCat = btn.dataset.c; rerenderBody(); return; }
@@ -892,6 +963,61 @@
   }
 
   /* ------------------------------------------------------------------- boot */
+
+  function toast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add('show'); });
+    setTimeout(function () {
+      el.classList.remove('show');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+    }, 2600);
+  }
+
+  // 把联网同步到的学生合并进内存数据
+  function mergeOverlay(ov) {
+    if (!ov) return 0;
+    let added = 0;
+    (ov.index || []).forEach(function (summary) {
+      if (!summary || !summary.id || BY_ID[summary.id]) return;
+      const full = (ov.students || {})[summary.id];
+      if (full) { summary.isNew = full.isNew; summary.syncedAt = full.syncedAt; }
+      INDEX.push(summary);
+      BY_ID[summary.id] = summary;
+      added++;
+    });
+    Object.keys(ov.students || {}).forEach(function (id) {
+      if (!STUDENTS[id]) STUDENTS[id] = ov.students[id];
+    });
+    if (added) buildFacets();
+    return added;
+  }
+
+  function knownIds() {
+    return INDEX.map(function (s) { return s.id; });
+  }
+
+  function afterSync(result) {
+    if (!result || !result.ok || !result.added) return;
+    window.BASync.load().then(function (ov) {
+      mergeOverlay(ov);
+      if (!state.detail) render();
+      toast('已同步 ' + result.added + ' 名新学生');
+    });
+  }
+
+  function startApp() {
+    render();
+    const boot = document.getElementById('boot');
+    if (boot) boot.remove();
+    if (window.BASync && window.BASync.available()) {
+      // 等首屏渲染完再联网，避免拖慢启动
+      setTimeout(function () { window.BASync.check({ known: knownIds() }).then(afterSync); }, 1200);
+    }
+  }
+
   tabbar.innerHTML = [
     ['students', '学生', ICON.students],
     ['schools', '学院', ICON.school],
@@ -905,7 +1031,11 @@
     if (window.scrollY > 4) topbar.classList.add('scrolled'); else topbar.classList.remove('scrolled');
   }, { passive: true });
 
-  render();
-  const boot = document.getElementById('boot');
-  if (boot) boot.remove();
+  if (window.BASync && window.BASync.available()) {
+    window.BASync.load()
+      .then(function (ov) { mergeOverlay(ov); startApp(); })
+      .catch(startApp);
+  } else {
+    startApp();
+  }
 })();

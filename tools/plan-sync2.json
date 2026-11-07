@@ -1,0 +1,19 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "53-sync-run", "wait": 2200, "after": 500,
+      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult && !st.running){clearInterval(iv);res(st.lastResult);}if(Date.now()-t0>120000){clearInterval(iv);res({timeout:true});}},500);})" },
+    { "name": "54-newbadge", "after": 400, "wait": 200,
+      "js": "(function(){return {newBadge:document.querySelectorAll('.newbadge').length,first:document.querySelector('.card .nm').textContent,count:document.querySelector('.count').textContent}})()" },
+    { "name": "55-new-detail", "after": 900, "wait": 200,
+      "js": "(function(){var c=document.querySelector('.card');c.click();return document.querySelector('.hero-info h2').textContent})()" },
+    { "name": "56-new-detail-overview", "after": 400, "wait": 200,
+      "js": "(function(){var tags=Array.from(document.querySelectorAll('.hero-tags .tag')).map(function(e){return e.textContent||'[img]'});return {name:document.querySelector('.hero-info h2').textContent,tags:tags,hasImg:document.querySelectorAll('.hero-tags img').length}})()" },
+    { "name": "57-new-detail-skills", "after": 600, "wait": 200,
+      "js": "(function(){document.querySelector('[data-act=dt][data-t=skills]').click();return {skills:document.querySelectorAll('.skill').length,icons:document.querySelectorAll('.skill-icon img').length}})()" }
+  ]
+}

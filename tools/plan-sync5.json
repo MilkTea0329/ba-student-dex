@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "90-first", "wait": 2500, "after": 200,
+      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);var raw=localStorage.getItem('ba_test_store');res({r:st.lastResult,storeLen:raw?raw.length:0});}else if(Date.now()-t0>90000){clearInterval(iv);res({timeout:true,running:st.running,last:st.lastResult});}},400);})" },
+    { "name": "91-second", "after": 200, "wait": 200,
+      "js": "window.BASync.check({force:true}).then(function(r){return {added:r.added,total:r.total,count:document.querySelector('.count').textContent}})()" },
+    { "name": "92-reload", "url": "http://127.0.0.1:8123/_test.html?keep=1", "wait": 2600, "after": 200,
+      "js": "(function(){return {cards:document.querySelectorAll('.card').length,count:document.querySelector('.count').textContent,first:document.querySelector('.card .nm').textContent,badges:document.querySelectorAll('.newbadge').length}})()" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "url": "http://127.0.0.1:8123/_test.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "50-sync-start", "wait": 2500,
+      "js": "({running: window.BASync.state.running, count: window.BA_INDEX.length})" },
+    { "name": "51-sync-done", "after": 500,
+      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult && !st.running){clearInterval(iv);res({result:st.lastResult,indexLen:window.BA_INDEX.length});}if(Date.now()-t0>120000){clearInterval(iv);res({timeout:true,running:st.running});}},500);})",
+      "wait": 200 },
+    { "name": "52-list", "after": 800,
+      "js": "(function(){var names=Array.from(document.querySelectorAll('.card .nm')).slice(0,6).map(function(e){return e.textContent});var newBadge=document.querySelectorAll('.newbadge').length;return {names:names,newBadge:newBadge,count:document.querySelector('.count')?document.querySelector('.count').textContent:'',cards:document.querySelectorAll('.card').length}})()",
+      "wait": 200 }
+  ]
+}
