@@ -1,0 +1,86 @@
+// Assemble the web app: rewrite remote image urls to bundled local files,
+// emit data.js, copy avatars / icons.
+const fs = require('fs');
+const path = require('path');
+
+const ROOT = path.resolve(__dirname, '..');
+const SRC = path.join(ROOT, 'data', 'build');
+const WEB = path.join(ROOT, 'web');
+
+const imgmap = JSON.parse(fs.readFileSync(path.join(SRC, 'imgmap.json'), 'utf8'));
+const portraitmapPath = path.join(SRC, 'portraitmap.json');
+const portraitmap = fs.existsSync(portraitmapPath) ? JSON.parse(fs.readFileSync(portraitmapPath, 'utf8')) : {};
+
+function local(u) {
+  if (!u) return u;
+  const h = imgmap[u];
+  return h ? 'img/' + h + '.png' : null;
+}
+
+function localPortrait(u) {
+  if (!u) return u;
+  const h = portraitmap[u];
+  return h ? 'portraits/' + h + '.jpg' : u;
+}
+
+function rewriteStudent(s) {
+  const fix = (o, k) => { if (o && o[k]) { const l = local(o[k]); if (l) o[k] = l; } };
+  (s.skills || []).forEach((k) => fix(k, 'icon'));
+  (s.terms || []).forEach((t) => fix(t, 'icon'));
+  fix(s.uniqueWeapon, 'icon');
+  if (s.uniqueWeapon && s.uniqueWeapon.skill) fix(s.uniqueWeapon.skill, 'icon');
+  fix(s.favoriteItem, 'icon');
+  fix(s.chocolate, 'icon');
+  const mats = (s.favoriteItem && s.favoriteItem.t2mats) || [];
+  s.favoriteItem && (s.favoriteItem.t2mats = mats.map((u) => local(u) || u));
+  (s.exMats || []).forEach((m) => (m.items || []).forEach((it) => { const l = local(it.icon); if (l) it.icon = l; }));
+  (s.skillMats || []).forEach((m) => (m.items || []).forEach((it) => { const l = local(it.icon); if (l) it.icon = l; }));
+  (s.ability.mats || []).forEach((u, i) => { const l = local(u); if (l) s.ability.mats[i] = l; });
+  s.gifts = (s.gifts || []).map((u) => local(u) || u);
+  (s.portraits || []).forEach((p) => { p.url = localPortrait(p.url); });
+  s.hall = s.hall || {};
+  s.hall.image = '';
+
+  // same-name character portraits stay remote; drop them if not resolvable
+  return s;
+}
+
+function copyDir(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  for (const f of fs.readdirSync(from)) {
+    const a = path.join(from, f);
+    const b = path.join(to, f);
+    if (fs.statSync(a).isDirectory()) copyDir(a, b);
+    else fs.copyFileSync(a, b);
+  }
+}
+
+function main() {
+  const index = JSON.parse(fs.readFileSync(path.join(SRC, 'index.json'), 'utf8'));
+  const students = {};
+  const lastUpdated = {};
+  for (const f of fs.readdirSync(path.join(SRC, 'students'))) {
+    const s = rewriteStudent(JSON.parse(fs.readFileSync(path.join(SRC, 'students', f), 'utf8')));
+    students[s.id] = s;
+    const d = new Date(s.updatedAt * 1000);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    lastUpdated[key] = (lastUpdated[key] || 0) + 1;
+  }
+
+  // newest release date + newest wiki update
+  const newest = index.map((s) => s.releaseDate).sort().slice(-1)[0] || '';
+
+  fs.mkdirSync(path.join(WEB, 'avatars'), { recursive: true });
+  copyDir(path.join(SRC, 'avatars'), path.join(WEB, 'avatars'));
+  if (fs.existsSync(path.join(SRC, 'img'))) copyDir(path.join(SRC, 'img'), path.join(WEB, 'img'));
+  if (fs.existsSync(path.join(SRC, 'portraits'))) copyDir(path.join(SRC, 'portraits'), path.join(WEB, 'portraits'));
+
+  const payload = 'window.BA_INDEX=' + JSON.stringify(index) + ';\n' +
+    'window.BA_STUDENTS=' + JSON.stringify(students) + ';\n' +
+    'window.BA_UPDATED=' + JSON.stringify(newest) + ';\n';
+  fs.writeFileSync(path.join(WEB, 'data.js'), payload);
+
+  console.log('web data.js', (payload.length / 1048576).toFixed(2), 'MB, students', Object.keys(students).length);
+}
+
+main();

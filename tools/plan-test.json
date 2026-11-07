@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "30-search", "wait": 1500,
+      "js": "(function(){const q=document.getElementById('q');q.value='日奈';q.dispatchEvent(new Event('input',{bubbles:true}));return 'typed'})()",
+      "after": 700 },
+    { "name": "31-search-result", "js": "(function(){const n=document.querySelectorAll('[data-act=open]').length;const names=Array.from(document.querySelectorAll('.card .nm')).map(e=>e.textContent);return {n:n,names:names}})()",
+      "after": 300 },
+    { "name": "32-fav", "js": "(function(){document.querySelector('[data-act=clear-q]').click();Array.from(document.querySelectorAll('[data-act=open]')).find(e=>e.dataset.id==='44388').click();setTimeout(function(){document.querySelector('[data-act=fav]').click()},400);return 'ok'})()",
+      "after": 1200 },
+    { "name": "33-fav-list",
+      "js": "(function(){document.querySelector('[data-act=back]').click();setTimeout(function(){document.querySelector('[data-tab=favorites]').click()},300);return 'ok'})()",
+      "after": 1200 },
+    { "name": "34-school-filter",
+      "js": "(function(){document.querySelector('[data-tab=schools]').click();setTimeout(function(){document.querySelector('[data-act=school]').click()},300);return 'ok'})()",
+      "after": 1200 }
+  ]
+}

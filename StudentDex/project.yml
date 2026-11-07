@@ -1,0 +1,59 @@
+name: StudentDex
+options:
+  bundleIdPrefix: com.sensei
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+
+targets:
+  StudentDex:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: Sources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
+      - path: Resources/Web
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sensei.studentdex
+        PRODUCT_NAME: StudentDex
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: 学生图鉴
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIViewControllerBasedStatusBarAppearance: true
+        UIStatusBarStyle: UIStatusBarStyleDefault
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+
+schemes:
+  StudentDex:
+    build:
+      targets:
+        StudentDex: all
+    run:
+      config: Debug
+    archive:
+      config: Release

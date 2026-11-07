@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "01-list", "wait": 1200 }
+  ]
+}

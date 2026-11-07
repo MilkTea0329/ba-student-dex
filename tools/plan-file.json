@@ -1,0 +1,12 @@
+﻿{
+  "url": "file:///C:/Users/weijunjie/Documents/gamekeedsh/StudentDex/Resources/Web/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "20-file-list", "wait": 1800 },
+    { "name": "21-file-detail", "after": 900,
+      "js": "Array.from(document.querySelectorAll('[data-act=open]')).find(e=>e.dataset.id==='44388').click()" }
+  ]
+}

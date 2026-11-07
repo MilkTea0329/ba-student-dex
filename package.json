@@ -1,0 +1,18 @@
+{
+  "name": "bluearchive-student-dex",
+  "version": "1.0.0",
+  "private": true,
+  "description": "蔚蓝档案 学生图鉴 — iOS app (WKWebView shell) + offline web data pipeline",
+  "scripts": {
+    "crawl": "node crawl/crawl.js",
+    "parse": "node crawl/parse.js",
+    "images": "python crawl/images.py",
+    "avatars": "python crawl/avatars.py",
+    "portraits": "python crawl/portraits.py",
+    "build:web": "node crawl/build_web.js",
+    "sync:web": "node tools/sync_web.js",
+    "build:all": "node crawl/parse.js && node crawl/build_web.js && node tools/sync_web.js",
+    "serve": "python -m http.server 8123 --directory web",
+    "shots": "node tools/shot.js tools/plan-all.json"
+  }
+}

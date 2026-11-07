@@ -1,0 +1,17 @@
+# 构建产物 / 缓存
+cache/
+shots/
+data/raw/
+*.log
+
+# 构建中间文件
+StudentDex/StudentDex.xcodeproj/
+StudentDex/build/
+StudentDex/Payload/
+StudentDex/*.ipa
+Payload/
+
+# 系统
+.DS_Store
+Thumbs.db
+node_modules/
