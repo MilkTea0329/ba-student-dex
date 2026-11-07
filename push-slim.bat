@@ -20,6 +20,17 @@ set /p REPO=Repo URL (https://github.com/user/repo.git):
 if "%REPO%"=="" goto empty
 
 echo.
+echo  [0/3] looking for a route to github.com ...
+call "%~dp0proxy-detect.bat"
+if not defined OK (
+    echo        [x] github.com unreachable - start your Clash / V2Ray first.
+    cd /d "%ROOT%"
+    pause
+    exit /b 1
+)
+echo        route: !ROUTE!
+
+echo.
 echo  [1/3] exporting StudentDex + .github (no network)...
 set "WORK=%TEMP%\ba-slim"
 if exist "%WORK%" rmdir /s /q "%WORK%"
@@ -42,6 +53,14 @@ git remote add origin %REPO%
 git config http.postBuffer 524288000
 git config http.version HTTP/1.1
 
+if "%DRYRUN%"=="1" (
+    echo.
+    echo  [dry-run] would run:  git !GIT_PROXY_ARG! push -u origin main
+    echo  [dry-run] nothing was pushed.
+    cd /d "%ROOT%"
+    exit /b 0
+)
+
 set /a TRY=0
 :push
 set /a TRY+=1
@@ -49,7 +68,7 @@ echo.
 echo  [3/3] pushing (attempt %TRY%/3, a browser window may open for
 echo        GitHub sign-in)...
 echo.
-git push -u origin main
+git !GIT_PROXY_ARG! push -u origin main
 if not errorlevel 1 goto done
 if %TRY% GEQ 3 goto pushfail
 echo   ... interrupted, retrying in 15s
