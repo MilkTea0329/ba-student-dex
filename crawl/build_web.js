@@ -37,11 +37,16 @@ function rewriteStudent(s) {
   (s.skillMats || []).forEach((m) => (m.items || []).forEach((it) => { const l = local(it.icon); if (l) it.icon = l; }));
   (s.ability.mats || []).forEach((u, i) => { const l = local(u); if (l) s.ability.mats[i] = l; });
   s.gifts = (s.gifts || []).map((u) => local(u) || u);
+  (s.giftTiers || []).forEach((t) => {
+    t.level = local(t.level) || t.level;
+    t.items = (t.items || []).map((u) => local(u) || u);
+  });
   (s.portraits || []).forEach((p) => { p.url = localPortrait(p.url); });
   s.hall = s.hall || {};
   s.hall.image = '';
 
-  // same-name character portraits stay remote; drop them if not resolvable
+  // 同名角色只用来跳转，图标不打包（远程图会因 Referer 校验加载失败）
+  (s.sameName || []).forEach((x) => { x.icon = ''; });
   return s;
 }
 

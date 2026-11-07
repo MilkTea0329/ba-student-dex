@@ -216,6 +216,22 @@
     (s.exMats || []).forEach(function (m) { (m.items || []).forEach(function (it) { add(it, 'icon', 64, 'image/png'); }); });
     (s.skillMats || []).forEach(function (m) { (m.items || []).forEach(function (it) { add(it, 'icon', 64, 'image/png'); }); });
 
+    // 礼物偏好：每档的「喜欢程度」图标 + 具体礼物
+    (s.giftTiers || []).forEach(function (t) {
+      if (t.level) {
+        var lvUrl = t.level;
+        jobs.push(function () {
+          return grabImage(lvUrl, 72, 'image/png').then(function (u) { if (u) t.level = u; });
+        });
+      }
+      (t.items || []).forEach(function (_, i) {
+        var itemUrl = t.items[i];
+        jobs.push(function () {
+          return grabImage(itemUrl, 72, 'image/png').then(function (u) { if (u) t.items[i] = u; });
+        });
+      });
+    });
+
     // 立绘太大，同步版先不下载（详情页会显示"暂无立绘"）
     s.portraits = [];
 

@@ -274,10 +274,18 @@
       sourceUrl: col(rows[256], 1)
     };
 
+    // 礼物偏好：三行，每行第 1 列是「喜欢程度」图标，后面才是具体礼物
+    s.giftTiers = [];
     s.gifts = [];
     [260, 263, 266].forEach(function (idx) {
-      var c = (rows[idx] || [])[0];
-      if (c && c.v) s.gifts.push(url(c.v));
+      var imgs = (rows[idx] || []).filter(function (c) { return c.t === 'i'; });
+      if (!imgs.length) return;
+      var tier = {
+        level: url(imgs[0].v),
+        items: imgs.slice(1).map(function (c) { return url(c.v); })
+      };
+      s.giftTiers.push(tier);
+      tier.items.forEach(function (u) { s.gifts.push(u); });
     });
 
     s.chocolate = { icon: imgOf(rows[273]), name: col(rows[274], 1), desc: col(rows[275], 1) };

@@ -44,6 +44,10 @@ def collect():
             add(u, 'mat')
         for u in s.get('gifts', []):
             add(u, 'gift')
+        for tier in s.get('giftTiers', []):
+            add(tier.get('level'), 'gift')
+            for u in tier.get('items', []):
+                add(u, 'gift')
         add((s.get('chocolate') or {}).get('icon'), 'choco')
 
 

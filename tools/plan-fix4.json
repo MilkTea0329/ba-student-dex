@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "D5-open", "wait": 1700, "after": 700,
+      "js": "Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='51889'}).click()" },
+    { "name": "D6-gifts", "after": 900, "wait": 200,
+      "js": "(function(){document.querySelector('[data-act=dt][data-t=profile]').click();setTimeout(function(){var t=Array.from(document.querySelectorAll('.section-title')).filter(function(x){return x.textContent.indexOf('礼物偏好')>=0})[0];t.scrollIntoView({block:'start'});},250);return 'scrolled'})()" },
+    { "name": "D7-samename", "after": 700, "wait": 200,
+      "js": "(function(){var t=Array.from(document.querySelectorAll('.section-title')).filter(function(x){return x.textContent.indexOf('同名角色')>=0})[0];t.scrollIntoView({block:'start'});return 'ok'})()" }
+  ]
+}

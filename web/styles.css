@@ -681,6 +681,48 @@ a { color: var(--accent); text-decoration: none; }
 .gift-row .g { width: 56px; height: 56px; border-radius: 12px; background: var(--card-2); display: flex; align-items: center; justify-content: center; }
 .gift-row img { width: 46px; height: 46px; object-fit: contain; }
 
+.gift-tier {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.gift-tier:last-child { border-bottom: 0; }
+.gift-tier .lv {
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: var(--card-2);
+}
+.gift-tier .lv.empty { display: block; }
+.gift-tier .items { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gift-tier .items img {
+  width: 46px; height: 46px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--card-2);
+}
+.gift-tier .items .none { font-size: 12px; color: var(--sub); }
+
+.skill-brief {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  border-left: 0; border-right: 0; border-top: 0;
+}
+.skill-brief:last-child { border-bottom: 0; }
+.skill-brief:active { background: var(--card-2); }
+.skill-brief .t1 { display: block; font-weight: 700; font-size: 14px; }
+.skill-brief .t2 { display: block; font-size: 11px; color: var(--sub); }
+.skill-brief .chev { color: var(--sub); font-size: 16px; }
+
+.skill { scroll-margin-top: 64px; }
+
 /* sheet */
 .sheet-root { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; }
 .sheet-root[hidden] { display: none; }

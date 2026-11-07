@@ -1,0 +1,18 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.addEventListener('unhandledrejection',function(e){window.__errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});",
+  "shots": [
+    { "name": "D1-open", "wait": 1700, "after": 800,
+      "js": "Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='51889'}).click()" },
+    { "name": "D2-profile", "after": 800, "wait": 200,
+      "js": "(function(){document.querySelector('[data-act=dt][data-t=profile]').click();var tiers=document.querySelectorAll('.gift-tier');var imgs=Array.from(document.querySelectorAll('.gift-tier img'));return {tiers:tiers.length,imgs:imgs.length,broken:imgs.filter(function(i){return i.complete&&i.naturalWidth===0}).length,same:document.querySelectorAll('.rowlink').length,errs:window.__errs}})()" },
+    { "name": "D3-skill-jump", "after": 700, "wait": 200,
+      "js": "(function(){document.querySelector('[data-act=dt][data-t=overview]').click();setTimeout(function(){var b=document.querySelector('[data-act=skill]');b.click()},200);return 'clicked'})()" },
+    { "name": "D4-skill-state", "after": 500, "wait": 200,
+      "js": "(function(){var seg=Array.from(document.querySelectorAll('.seg button')).filter(function(b){return b.classList.contains('on')})[0];return {activeTab:seg?seg.textContent:'',skills:document.querySelectorAll('.skill').length,scrollTop:Math.round(document.getElementById('detail').scrollTop),errs:window.__errs}})()" }
+  ]
+}

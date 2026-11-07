@@ -480,14 +480,14 @@
     html += '</div></div>';
 
     html += secTitle('技能速览');
-    html += '<div class="panel">' + (s.skills || []).map(function (k) {
+    html += '<div class="panel">' + (s.skills || []).map(function (k, i) {
       const kind = SKILL_KIND[k.kindLabel] || 'SK';
-      return '<div style="padding:12px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center">' +
+      return '<button class="skill-brief" data-act="skill" data-i="' + i + '" style="width:100%;text-align:left">' +
         '<span class="skill-icon" style="width:36px;height:32px;background:' + (SKILL_COLOR[kind] || '#7b8aa0') + ';font-size:11px">' + kind + '</span>' +
-        '<span style="flex:1"><span style="font-weight:700;font-size:14px">' + esc(k.name || k.kindLabel) + '</span>' +
-        '<span style="display:block;font-size:11px;color:var(--sub)">' + esc(k.kindLabel) + ' · ' + (k.levels ? k.levels.length : 0) + ' 级</span></span>' +
-        '<span style="color:var(--sub);font-size:12px">›</span>' +
-      '</div>';
+        '<span style="flex:1;min-width:0"><span class="t1">' + esc(k.name || k.kindLabel) + '</span>' +
+        '<span class="t2">' + esc(k.kindLabel) + ' · ' + (k.levels ? k.levels.length : 0) + ' 级</span></span>' +
+        '<span class="chev">›</span>' +
+      '</button>';
     }).join('') + '</div>';
 
     return html;
@@ -500,7 +500,7 @@
       const lv = state.skillLv[idx] || 1;
       const list = k.levels || [];
       const entry = list.filter(function (x) { return x.lv === lv; })[0] || list[0] || { text: '' };
-      html += '<div class="skill">' +
+      html += '<div class="skill" data-skill="' + idx + '">' +
         '<div class="skill-head">' +
           '<div class="skill-icon" style="background:' + (SKILL_COLOR[kind] || '#7b8aa0') + '">' +
             (k.icon ? '<img src="' + k.icon + '" alt="">' : kind) +
@@ -653,6 +653,16 @@
     return html;
   }
 
+  // 「★3 爱丽丝（女仆）」→ 找 App 里同名的学生，实现跳转
+  function resolveSameName(rawName) {
+    const nm = String(rawName || '').replace(/^★\d+\s*/, '').replace(/^NPC\s*/, '').trim();
+    if (!nm) return null;
+    for (let i = 0; i < INDEX.length; i++) {
+      if (INDEX[i].name === nm) return INDEX[i];
+    }
+    return null;
+  }
+
   function profileTab(s) {
     const p = s.profile || {};
     const rows = [
@@ -668,7 +678,20 @@
 
     if (p.bio) html += secTitle('个人简介') + '<div class="panel"><div class="panel-body"><div class="quote">' + rich(p.bio) + '</div></div></div>';
 
-    if (s.gifts && s.gifts.length) {
+    // 礼物偏好：三档「喜欢程度」，每档后面才是具体礼物
+    const tiers = s.giftTiers || [];
+    if (tiers.length) {
+      html += secTitle('礼物偏好');
+      html += '<div class="panel">' + tiers.map(function (t) {
+        const items = (t.items || []);
+        return '<div class="gift-tier">' +
+          (t.level ? '<img class="lv" src="' + t.level + '" alt="">' : '<span class="lv empty"></span>') +
+          '<div class="items">' + (items.length
+            ? items.map(function (u) { return '<img src="' + u + '" alt="">'; }).join('')
+            : '<span class="none">暂无收录</span>') + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+    } else if (s.gifts && s.gifts.length) {
       html += secTitle('礼物偏好');
       html += '<div class="panel"><div class="panel-body"><div class="gift-row">' + s.gifts.map(function (g) {
         return '<span class="g"><img src="' + g + '" alt=""></span>';
@@ -687,9 +710,12 @@
     if (s.sameName && s.sameName.length) {
       html += secTitle('同名角色');
       html += '<div class="panel">' + s.sameName.map(function (x) {
-        return '<div class="rowlink"><span style="display:flex;align-items:center;gap:8px">' +
-          (x.icon ? '<img src="' + x.icon + '" style="width:26px;height:30px;object-fit:contain" alt="">' : '') +
-          esc(x.name) + '</span><span class="r">其他形态</span></div>';
+        const target = resolveSameName(x.name);
+        const inner = '<span class="rowlabel">' + esc(x.name) + '</span>' +
+          '<span class="r">' + (target ? '查看 ›' : '未收录') + '</span>';
+        return target
+          ? '<button class="rowlink" data-act="open" data-id="' + target.id + '" style="width:100%;text-align:left">' + inner + '</button>'
+          : '<div class="rowlink" style="opacity:.55">' + inner + '</div>';
       }).join('') + '</div>';
     }
 
@@ -880,6 +906,14 @@
         }
         if (!state.detail) render();
       });
+      return;
+    }
+    if (act === 'skill') {
+      state.detailTab = 'skills';
+      state.voiceCat = null;
+      rerenderBody();
+      const target = detailEl.querySelector('[data-skill="' + btn.dataset.i + '"]');
+      if (target) target.scrollIntoView({ block: 'start' });
       return;
     }
     if (act === 'dt') { state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
