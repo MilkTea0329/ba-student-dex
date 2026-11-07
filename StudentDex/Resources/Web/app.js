@@ -583,16 +583,22 @@
         }).join('') + '</tbody></table></div></div>';
     }
 
-    if (s.ability && s.ability.attrs && s.ability.attrs.length) {
+    // 能力解放：优先用「25级」那一行（537 行）的数值，
+    // 介绍区的 279~281 行经常是 WIKI 的占位文字（如「这个不用写」）
+    const abilityAttrs = (s.abilityDetail && s.abilityDetail.attrs && s.abilityDetail.attrs.length)
+      ? s.abilityDetail.attrs
+      : ((s.ability && s.ability.attrs) || []).filter(function (a) { return a && a.value && !/不用写/.test(a.value); });
+    if (abilityAttrs.length) {
       html += secTitle('能力解放（25级）');
-      html += '<div class="panel"><div class="panel-body"><div class="matgrid">' + s.ability.attrs.map(function (a) {
+      html += '<div class="panel"><div class="panel-body"><div class="matgrid">' + abilityAttrs.map(function (a) {
         return '<span class="mat"><span class="n">' + esc(a.name) + '</span><span class="x">+' + esc(a.value) + '</span></span>';
       }).join('') + '</div></div></div>';
     }
 
-    if (s.bond && s.bond.length) {
+    const bonds = (s.bond || []).filter(function (b) { return b && ((b.attrs && b.attrs.length) || b.icon); });
+    if (bonds.length) {
       html += secTitle('羁绊等级奖励（50级）');
-      html += '<div class="panel">' + s.bond.map(function (b) {
+      html += '<div class="panel">' + bonds.map(function (b) {
         return '<div style="padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">' +
           (b.icon ? '<img src="' + b.icon + '" style="width:34px;height:38px;object-fit:contain;border-radius:8px" alt="">' : '') +
           '<span style="flex:1;font-weight:700;font-size:13.5px">' + esc(b.label) + '</span>' +

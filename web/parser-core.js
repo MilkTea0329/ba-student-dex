@@ -290,8 +290,11 @@
 
     s.chocolate = { icon: imgOf(rows[273]), name: col(rows[274], 1), desc: col(rows[275], 1) };
 
+    // 能力解放：279~281 行常被 WIKI 编辑者填占位文字（如「这个不用写」），
+    // 真正的 25 级数值在 537 行，UI 优先用 abilityDetail。
     s.ability = {
-      attrs: [kvPairs(rows[279], 1)[0], kvPairs(rows[280], 1)[0], kvPairs(rows[281], 1)[0]].filter(Boolean),
+      attrs: [kvPairs(rows[279], 1)[0], kvPairs(rows[280], 1)[0], kvPairs(rows[281], 1)[0]]
+        .filter(function (a) { return a && a.value && !/不用写/.test(a.value); }),
       mats: (rows[282] || []).filter(function (c) { return c.t === 'i'; }).map(function (c) { return url(c.v); })
     };
 
@@ -345,7 +348,11 @@
     for (var q6 = 540; q6 <= 542; q6++) {
       var lb2 = label(rows[q6]);
       if (!lb2) continue;
-      s.bond.push({ label: lb2, icon: imgOf(rows[q6]), attrs: kvPairs(rows[q6], 2) });
+      var bondIcon = imgOf(rows[q6]);
+      var bondAttrs = kvPairs(rows[q6], 2);
+      // 没有头像也没有属性的空档位直接跳过，避免详情页出现空行
+      if (!bondIcon && !bondAttrs.length) continue;
+      s.bond.push({ label: lb2, icon: bondIcon, attrs: bondAttrs });
     }
 
     // 评测

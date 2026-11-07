@@ -1,0 +1,16 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.addEventListener('unhandledrejection',function(e){window.__errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});",
+  "shots": [
+    { "name": "G1-open", "wait": 1700, "after": 700,
+      "js": "Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='148495'}).click()" },
+    { "name": "G2-stats", "after": 900, "wait": 150,
+      "js": "(function(){document.querySelector('[data-act=dt][data-t=stats]').click();setTimeout(function(){var t=Array.from(document.querySelectorAll('.section-title')).filter(function(x){return x.textContent.indexOf('能力解放')>=0})[0];if(t)t.scrollIntoView({block:'start'})},250);return 'ok'})()" },
+    { "name": "G3-text", "after": 600, "wait": 100,
+      "js": "(function(){var titles=Array.from(document.querySelectorAll('.section-title')).map(function(x){return x.textContent.trim()});var mats=Array.from(document.querySelectorAll('.matgrid .mat')).map(function(x){return x.textContent.replace(/\\s+/g,' ').trim()});var bondRows=document.querySelectorAll('.panel > div[style*=\"border-bottom\"]').length;return {titles:titles.filter(function(t){return t.indexOf('能力')>=0||t.indexOf('羁绊')>=0}),abilityChips:mats,bondRows:bondRows,errs:window.__errs}})()" }
+  ]
+}
