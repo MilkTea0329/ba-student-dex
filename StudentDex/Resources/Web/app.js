@@ -63,9 +63,30 @@
     return out.replace(/\n/g, '<br>');
   }
 
-  const ATK_COLOR = { '爆炸': '#ef5f3c', '贯穿': '#e8a92f', '神秘': '#4d7df2', '振动': '#9b5cf0', '治疗': '#22a875' };
-  const DEF_COLOR = { '轻装甲': '#4d9df2', '重装甲': '#e8a92f', '特殊装甲': '#9b5cf0' };
-  const ROLE_COLOR = { '输出': '#ef5f3c', '坦克': '#4d7df2', '治疗': '#22a875', '辅助': '#9b5cf0' };
+  // WIKI 里同一种属性存在不同译法（贯通/贯穿、支援/辅助），两种都要能取到颜色，
+  // 否则会落到下面的灰色兜底 #7b8aa0 上。
+  const ATK_COLOR = {
+    '爆炸': '#ef5f3c',   // 红
+    '贯通': '#d99a1f',   // 深黄（游戏内图标色）
+    '贯穿': '#d99a1f',   // 同 贯通，兼容旧译名
+    '神秘': '#4d7df2',   // 蓝
+    '振动': '#9b5cf0',   // 紫
+    '治疗': '#22a875'
+  };
+  const DEF_COLOR = {
+    '轻装甲': '#4d9df2',
+    '重装甲': '#d99a1f',
+    '特殊装甲': '#9b5cf0',
+    '弹力装甲': '#22a875',
+    '复合装甲': '#e0742c'
+  };
+  const ROLE_COLOR = {
+    '输出': '#ef5f3c',
+    '坦克': '#4d9df2',
+    '治疗': '#22a875',
+    '辅助': '#9b5cf0',
+    '支援': '#9b5cf0'
+  };
   const GRADE_COLOR = { S: '#f2b132', A: '#9b5cf0', B: '#4d7df2', C: '#93a2b8', D: '#c3ccd8' };
   const POSITION_CN = { FRONT: '前排', MIDDLE: '中排', BACK: '后排' };
   const TACTIC_CN = { STRIKER: '突击', SPECIAL: '支援' };

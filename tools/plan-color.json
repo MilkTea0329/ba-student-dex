@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "B1-list", "wait": 1600, "after": 300,
+      "js": "(function(){var c=Array.from(document.querySelectorAll('.card')).find(function(e){return e.querySelector('.nm').textContent.indexOf('䌷')===0});return {found:!!c, bar:c?c.querySelector('.accentbar').style.background:'', name:c?c.querySelector('.nm').textContent:''}})()" },
+    { "name": "B2-detail", "after": 900, "wait": 200,
+      "js": "(function(){var c=Array.from(document.querySelectorAll('.card')).find(function(e){return e.querySelector('.nm').textContent.indexOf('䌷')===0});c.click();var tag=document.querySelector('.hero-tags .tag');return {name:document.querySelector('.hero-info h2').textContent, attackTagColor:tag?getComputedStyle(tag).backgroundColor:'', attackText:tag?tag.textContent:''}})()" }
+  ]
+}
