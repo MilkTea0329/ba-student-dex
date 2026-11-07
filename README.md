@@ -119,11 +119,14 @@ brew install xcodegen       # 只需一次
 
 ## 4. 在 Windows 上安装到 iPhone
 
-ipa 是**未签名**的，需要用你自己的 Apple ID 重新签名后安装（免费，无需开发者账号）：
+ipa 是**未签名**的，需要用你自己的 Apple ID 重新签名后安装（免费，无需开发者账号）。
+
+📖 **完整图文教程：[什亭之匣iOS自签安装教程.md](什亭之匣iOS自签安装教程.md)**（含爱思助手详细步骤、报错排查、7 天续签说明）
 
 | 工具 | 说明 |
 | --- | --- |
-| **Sideloadly**（推荐） | Windows 原生支持，需先装 iTunes（微软商店版即可）。打开 Sideloadly → 拖入 `StudentDex.ipa` → 填 Apple ID → Start，按提示在 iPhone「设置 → 通用 → VPN与设备管理」里信任证书 |
+| **爱思助手**（⭐ 推荐） | 签名 + 安装一步完成，国内最省事；官网 <https://www.i4.cn> |
+| **Sideloadly** | 需先装 iTunes（微软商店版即可）。拖入 `StudentDex.ipa` → 填 Apple ID → Start |
 | **AltStore / SideStore** | 装一次 AltServer，之后可以无线续签，7 天到期自动刷新 |
 | **TrollStore** | 系统版本支持的情况下可永久安装，无需续签 |
 
