@@ -54,6 +54,30 @@ git push -u origin main
 > 如果提示 `remote origin already exists`，说明之前加过，改用：
 > `git remote set-url origin https://github.com/你的用户名/ba-student-dex.git`
 
+### 2.1 连不上 GitHub 怎么办（国内网络很常见）
+
+`github.com` 在国内常常被解析到一个连不通的 IP，表现就是
+`Failed to connect to github.com port 443`。按顺序试：
+
+**① 用你自己的代理/VPN（最稳）**
+打开你平时用的 FlClash / Clash（本机已装），确认浏览器能打开 <https://github.com>，再运行推送脚本。
+
+> ⚠️ 不要用 **Cloudflare WARP** —— 在这台电脑上启动 WARP 会导致整机断网（实测过）。
+
+**② 改 hosts 直连（不用代理）**
+双击 **`fix-github-hosts.bat`**，会弹 UAC 点"是"。脚本会自动探测当前能连通的 GitHub 边缘 IP
+（`20.27.177.113` / `140.82.*` 等），写进 hosts 并刷新 DNS，最后打印测试结果。
+想撤销就运行：`fix-github-hosts.bat -remove`。
+
+> 注意：**不要**在开着代理的情况下用这个脚本，两者叠加会更乱。
+
+**③ 用精简推送（弱网首选）**
+双击 **`push-slim.bat`**。它只推送 `StudentDex/ + .github/ + README`（约 **35 MB**，
+是完整仓库的 1/4），但打出来的 ipa 功能完全一样——所有数据、头像、立绘都在
+`StudentDex/Resources/Web` 里。弱网下成功率高得多。
+
+> 完整仓库（含爬虫脚本、web 预览、原始数据）以后网络好时再推也不迟。
+
 ---
 
 ## 3. 等 GitHub 编译出 ipa
