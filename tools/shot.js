@@ -87,6 +87,10 @@ async function main() {
   });
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true });
 
+  if (plan.preScript) {
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: plan.preScript });
+  }
+
   const outDir = plan.outDir || 'shots';
   fs.mkdirSync(outDir, { recursive: true });
 

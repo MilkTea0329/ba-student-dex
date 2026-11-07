@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.addEventListener('unhandledrejection',function(e){window.__errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});",
+  "shots": [
+    { "name": "C1-http", "wait": 1800, "after": 200,
+      "js": "(function(){return {cards:document.querySelectorAll('.card').length,tabs:document.querySelectorAll('.tabbar button').length,count:document.querySelector('.count').textContent,errs:window.__errs}})()" },
+    { "name": "C2-tabs", "after": 400, "wait": 200,
+      "js": "(function(){var out={};['schools','favorites','more','students'].forEach(function(t){document.querySelector('[data-tab='+t+']').click();out[t]=document.querySelectorAll('.card,.school-card,.rowlink').length;});return {out:out,errs:window.__errs}})()" },
+    { "name": "C3-detail", "after": 700, "wait": 200,
+      "js": "(function(){Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='44388'}).click();return {title:document.querySelector('.hero-info h2').textContent,tabs:document.querySelectorAll('.seg button').length,errs:window.__errs}})()" },
+    { "name": "C4-search", "after": 700, "wait": 200,
+      "js": "(function(){document.querySelector('[data-act=back]').click();var el=document.getElementById('q');el.focus();el.value='日奈';el.dispatchEvent(new InputEvent('input',{bubbles:true}));return {ok:true}})()" },
+    { "name": "C5-search-result", "after": 700, "wait": 200,
+      "js": "(function(){var el=document.getElementById('q');return {value:el.value,focused:document.activeElement===el,cards:document.querySelectorAll('.card').length,errs:window.__errs}})()" },
+    { "name": "C6-file", "url": "file:///C:/Users/weijunjie/Documents/gamekeedsh/StudentDex/Resources/Web/index.html", "wait": 2500, "after": 300,
+      "js": "(function(){return {mode:'file://',cards:document.querySelectorAll('.card').length,count:document.querySelector('.count').textContent,bridge:window.BASync.available(),errs:window.__errs}})()" }
+  ]
+}
