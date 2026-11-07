@@ -11,7 +11,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-14
+    # macOS 14 runners were retired by GitHub on 2026-11-02.
+    # Use macos-15 (or macos-latest) from now on.
+    runs-on: macos-15
     timeout-minutes: 40
     steps:
       - name: Checkout
