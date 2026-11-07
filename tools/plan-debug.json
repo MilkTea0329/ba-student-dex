@@ -1,0 +1,17 @@
+﻿{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "40-sort", "wait": 1500,
+      "js": "Array.from(document.querySelectorAll('.card .nm')).slice(0,6).map(e=>e.textContent)" },
+    { "name": "41-typing",
+      "js": "(function(){var el=document.getElementById('q');el.focus();var out=[];['日','奈'].forEach(function(ch){el.value+=ch;el.dispatchEvent(new InputEvent('input',{bubbles:true,data:ch,inputType:'insertText'}));});return {value:el.value,focused:document.activeElement===el,sameNode:document.getElementById('q')===el}})()",
+      "after": 600 },
+    { "name": "42-typing-result",
+      "js": "(function(){var el=document.getElementById('q');return {value:el.value,focused:document.activeElement===el,sameNode:document.getElementById('q')===el,cards:Array.from(document.querySelectorAll('.card .nm')).map(e=>e.textContent),count:document.querySelector('.count').textContent}})()",
+      "after": 300 }
+  ]
+}

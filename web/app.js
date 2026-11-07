@@ -160,11 +160,34 @@
     return true;
   }
 
+  // Wiki dates look like "2026/9/23" or "2021/02/04" — string comparison would
+  // put 9/23 before 10/28, so always compare a numeric key.
+  function dateKey(v) {
+    const m = String(v == null ? '' : v).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    if (!m) return -1;
+    return (+m[1]) * 10000 + (+m[2]) * 100 + (+m[3]);
+  }
+
+  function latestReleaseDate() {
+    let best = '';
+    for (let i = 0; i < INDEX.length; i++) {
+      if (dateKey(INDEX[i].releaseDate) > dateKey(best)) best = INDEX[i].releaseDate;
+    }
+    return best;
+  }
+
   function sortList(list) {
     const out = list.slice();
-    if (state.sort === 'name') out.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh-Hans-CN'); });
-    else if (state.sort === 'rarity') out.sort(function (a, b) { return b.rarity - a.rarity || a.name.localeCompare(b.name, 'zh-Hans-CN'); });
-    else out.sort(function (a, b) { return String(b.releaseDate).localeCompare(String(a.releaseDate)); });
+    if (state.sort === 'name') {
+      out.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh-Hans-CN'); });
+    } else if (state.sort === 'rarity') {
+      out.sort(function (a, b) { return b.rarity - a.rarity || a.name.localeCompare(b.name, 'zh-Hans-CN'); });
+    } else {
+      out.sort(function (a, b) {
+        return dateKey(b.releaseDate) - dateKey(a.releaseDate) ||
+          a.name.localeCompare(b.name, 'zh-Hans-CN');
+      });
+    }
     return out;
   }
 
@@ -264,7 +287,7 @@
         '<div class="rowlink"><span>学生总数</span><span class="r">' + INDEX.length + ' 名</span></div>' +
         '<div class="rowlink"><span>突击 / 支援</span><span class="r">' + strikes + ' / ' + (INDEX.length - strikes) + '</span></div>' +
         '<div class="rowlink"><span>数据来源</span><span class="r">GameKee 蔚蓝档案 WIKI</span></div>' +
-        '<div class="rowlink"><span>最新实装</span><span class="r">' + (window.BA_UPDATED || '—') + '</span></div>' +
+        '<div class="rowlink"><span>最新实装</span><span class="r">' + (latestReleaseDate() || '—') + '</span></div>' +
       '</div>' +
       '<div class="section-title">说明</div>' +
       '<div class="panel"><div class="panel-body" style="font-size:12.5px;line-height:1.7;color:var(--sub)">' +
@@ -658,7 +681,9 @@
       '<div class="count">' + count + '</div></div>' +
       (state.tab === 'students' ?
         '<div class="search ' + (state.query ? 'has-text' : '') + '">' + ICON.search +
-        '<input id="q" type="search" inputmode="search" placeholder="搜索学生 / 别名 / 学院" value="' + esc(state.query) + '">' +
+        '<input id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" ' +
+        'autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+        'placeholder="搜索学生 / 别名 / 学院" value="' + esc(state.query) + '">' +
         '<button class="clear" data-act="clear-q">✕</button></div>' : '');
     Array.prototype.forEach.call(tabbar.querySelectorAll('button'), function (b) {
       b.classList.toggle('on', b.dataset.tab === state.tab);
@@ -770,17 +795,48 @@
     if (act === 'vcat') { state.voiceCat = btn.dataset.c; rerenderBody(); return; }
   });
 
+  // --------------------------------------------------------------- search
+  // IMPORTANT: never re-create the <input> while typing — on iOS that kills
+  // the keyboard / IME composition. Only the result list and the counters are
+  // refreshed, the input node itself is left untouched.
+  let composing = false;
+
+  function applySearch() {
+    const box = topbar.querySelector('.search');
+    if (box) box.classList.toggle('has-text', !!state.query);
+    const cnt = topbar.querySelector('.count');
+    if (cnt) cnt.textContent = filtered().length + ' / ' + INDEX.length;
+    view.innerHTML = listView();
+  }
+
+  function scheduleSearch(delay) {
+    clearTimeout(window.__qt);
+    window.__qt = setTimeout(applySearch, delay == null ? 140 : delay);
+  }
+
   document.addEventListener('input', function (e) {
-    if (e.target.id === 'q') {
-      state.query = e.target.value;
-      clearTimeout(window.__qt);
-      window.__qt = setTimeout(function () {
-        renderTop();
-        view.innerHTML = listView();
-        const q = document.getElementById('q');
-        if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
-      }, 120);
-    }
+    if (e.target.id !== 'q') return;
+    state.query = e.target.value;
+    if (composing) return; // wait for compositionend (Chinese / Japanese IME)
+    scheduleSearch(140);
+  });
+
+  document.addEventListener('compositionstart', function (e) {
+    if (e.target.id === 'q') composing = true;
+  });
+
+  document.addEventListener('compositionend', function (e) {
+    if (e.target.id !== 'q') return;
+    composing = false;
+    state.query = e.target.value;
+    scheduleSearch(40);
+  });
+
+  // native "clear" button of <input type="search">
+  document.addEventListener('search', function (e) {
+    if (e.target.id !== 'q') return;
+    state.query = e.target.value;
+    scheduleSearch(0);
   });
 
   /* ------------------------------------------------------------------ sheet */

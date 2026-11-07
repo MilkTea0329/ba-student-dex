@@ -1,0 +1,26 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "shots": [
+    { "name": "43-ime", "wait": 1500,
+      "js": "(function(){var el=document.getElementById('q');el.focus();el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));el.value='ri';el.dispatchEvent(new InputEvent('input',{bubbles:true,isComposing:true}));var during=document.querySelectorAll('.card').length;el.value='日';el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'日'}));return {cardsDuringComposition:during,valueAfter:el.value}})()",
+      "after": 500 },
+    { "name": "44-ime-after",
+      "js": "(function(){return {cards:document.querySelectorAll('.card').length,focused:document.activeElement===document.getElementById('q'),count:document.querySelector('.count').textContent}})()",
+      "after": 300 },
+    { "name": "45-clear",
+      "js": "(function(){document.querySelector('[data-act=clear-q]').click();return {value:document.getElementById('q').value,cards:document.querySelectorAll('.card').length,count:document.querySelector('.count').textContent}})()",
+      "after": 400 },
+    { "name": "46-more-latest",
+      "js": "(function(){document.querySelector('[data-tab=more]').click();var rows=Array.from(document.querySelectorAll('.rowlink'));var r=rows.filter(function(x){return x.textContent.indexOf('最新实装')>=0})[0];return r?r.textContent.replace(/\\s+/g,' ').trim():'not found'})()",
+      "after": 600 },
+    { "name": "47-sort-cycle",
+      "js": "(function(){document.querySelector('[data-tab=students]').click();setTimeout(function(){document.querySelector('[data-act=sort-cycle]').click()},150);return 'ok'})()",
+      "after": 800 },
+    { "name": "48-sort-name",
+      "js": "Array.from(document.querySelectorAll('.card .nm')).slice(0,5).map(e=>e.textContent)" }
+  ]
+}
