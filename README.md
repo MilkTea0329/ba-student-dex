@@ -87,9 +87,20 @@ iPhone 连同一个 Wi-Fi，用 **Safari** 打开 `http://192.168.1.20:8123/`，
 
 仓库内置 GitHub Actions 工作流，会把未签名 ipa 作为构建产物输出：
 
-1. 把本目录推到你自己的 GitHub 仓库；
-2. 打开仓库的 **Actions → Build unsigned IPA → Run workflow**；
-3. 等 3–5 分钟，在该次运行的 **Artifacts** 里下载 `StudentDex-unsigned-ipa`，解压得到 `StudentDex.ipa`。
+1. 在 GitHub 新建一个空仓库（不要勾 README）；
+2. 本目录已经 `git init` 并提交过，直接推送即可：
+
+   ```powershell
+   cd C:\Users\weijunjie\Documents\gamekeedsh
+   git remote add origin https://github.com/你的用户名/ba-student-dex.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+3. 打开仓库的 **Actions → Build unsigned IPA**，等 3–5 分钟；
+4. 在该次运行的 **Artifacts** 里下载 `StudentDex-unsigned-ipa`，解压得到 `StudentDex.ipa`。
+
+完整图文步骤、Sideloadly 安装与排错见 **[docs/BUILD-IPA.md](docs/BUILD-IPA.md)**。
 
 ### 方式 C：在 Mac 上本地构建
 
