@@ -13,7 +13,7 @@ os.makedirs(CACHE, exist_ok=True)
 HDR = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.gamekee.com/'}
 
 # kind -> max edge
-KIND_SIZE = {'skill': 96, 'term': 64, 'uw': 96, 'fi': 96, 'gift': 72, 'choco': 96, 'mat': 64}
+KIND_SIZE = {'skill': 96, 'term': 64, 'uw': 96, 'fi': 96, 'gift': 72, 'choco': 96, 'mat': 64, 'bond': 96}
 
 refs = {}  # url -> kind
 
@@ -48,6 +48,8 @@ def collect():
             add(tier.get('level'), 'gift')
             for u in tier.get('items', []):
                 add(u, 'gift')
+        for b in s.get('bond', []):
+            add(b.get('icon'), 'bond')
         add((s.get('chocolate') or {}).get('icon'), 'choco')
 
 

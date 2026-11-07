@@ -232,6 +232,15 @@
       });
     });
 
+    // 赠绊等级奖励的角色头像
+    (s.bond || []).forEach(function (b) {
+      if (!b.icon) return;
+      var u0 = b.icon;
+      jobs.push(function () {
+        return grabImage(u0, 96, 'image/png').then(function (u) { if (u) b.icon = u; });
+      });
+    });
+
     // 立绘太大，同步版先不下载（详情页会显示"暂无立绘"）
     s.portraits = [];
 

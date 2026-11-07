@@ -41,6 +41,7 @@ function rewriteStudent(s) {
     t.level = local(t.level) || t.level;
     t.items = (t.items || []).map((u) => local(u) || u);
   });
+  (s.bond || []).forEach((b) => { b.icon = local(b.icon) || ''; });
   (s.portraits || []).forEach((p) => { p.url = localPortrait(p.url); });
   s.hall = s.hall || {};
   s.hall.image = '';
@@ -86,6 +87,44 @@ function main() {
   fs.writeFileSync(path.join(WEB, 'data.js'), payload);
 
   console.log('web data.js', (payload.length / 1048576).toFixed(2), 'MB, students', Object.keys(students).length);
+  auditRemoteImages(students);
+}
+
+// 体检：界面会 <img> 渲染的字段不允许残留远程地址
+// （CDN 要求 Referer，App 内 file:// 页面发不出来，会变成裂图）
+function auditRemoteImages(students) {
+  const buckets = {};
+  const hit = (name, url) => {
+    if (typeof url === 'string' && url.indexOf('http') === 0) {
+      buckets[name] = (buckets[name] || 0) + 1;
+    }
+  };
+  for (const id of Object.keys(students)) {
+    const s = students[id];
+    (s.skills || []).forEach((k) => hit('skills.icon', k.icon));
+    (s.terms || []).forEach((t) => hit('terms.icon', t.icon));
+    hit('uniqueWeapon.icon', s.uniqueWeapon && s.uniqueWeapon.icon);
+    hit('uniqueWeapon.skill.icon', s.uniqueWeapon && s.uniqueWeapon.skill && s.uniqueWeapon.skill.icon);
+    hit('favoriteItem.icon', s.favoriteItem && s.favoriteItem.icon);
+    hit('chocolate.icon', s.chocolate && s.chocolate.icon);
+    (s.giftTiers || []).forEach((t) => {
+      hit('giftTiers.level', t.level);
+      (t.items || []).forEach((u) => hit('giftTiers.items', u));
+    });
+    (s.bond || []).forEach((b) => hit('bond.icon', b.icon));
+    (s.portraits || []).forEach((p) => hit('portraits', p.url));
+    (s.exMats || []).concat(s.skillMats || []).forEach((m) => {
+      (m.items || []).forEach((it) => hit('materials.icon', it.icon));
+    });
+    (s.ability && s.ability.mats || []).forEach((u) => hit('ability.mats', u));
+  }
+  const kinds = Object.keys(buckets);
+  if (!kinds.length) {
+    console.log('✓ 图片体检通过：所有会被渲染的图片都是本地路径');
+  } else {
+    console.log('⚠ 仍有远程图片（App 内会裂图）:');
+    kinds.forEach((k) => console.log('   ', k, buckets[k]));
+  }
 }
 
 main();
