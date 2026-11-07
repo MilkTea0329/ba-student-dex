@@ -34,7 +34,7 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: 学生图鉴
+        CFBundleDisplayName: 什亭之匣
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen:

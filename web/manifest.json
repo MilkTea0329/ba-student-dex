@@ -1,6 +1,6 @@
-﻿{
-  "name": "蔚蓝档案 · 学生图鉴",
-  "short_name": "学生图鉴",
+{
+  "name": "什亭之匣 · 蔚蓝档案学生图鉴",
+  "short_name": "什亭之匣",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#eef3fa",

@@ -1,6 +1,9 @@
-/* 蔚蓝档案 · 学生图鉴 — single page app (offline first) */
+/* 什亭之匣 · 蔚蓝档案学生图鉴 — single page app (offline first) */
 (function () {
   'use strict';
+
+  const APP_NAME = '什亭之匣';
+  const APP_VERSION = 'V1.0.0';
 
   // 内置数据（打包进 App），联网同步到的新学生会追加到这里
   const INDEX = (window.BA_INDEX || []).slice();
@@ -357,6 +360,8 @@
       '</div>' +
       '<div class="section-title">关于</div>' +
       '<div class="panel">' +
+        '<div class="rowlink"><span>应用名称</span><span class="r">' + esc(APP_NAME) + '</span></div>' +
+        '<div class="rowlink"><span>版本</span><span class="r" id="app-version">' + esc(APP_VERSION) + '</span></div>' +
         '<div class="rowlink"><span>学生总数</span><span class="r">' + INDEX.length + ' 名</span></div>' +
         '<div class="rowlink"><span>突击 / 支援</span><span class="r">' + strikes + ' / ' + (INDEX.length - strikes) + '</span></div>' +
         '<div class="rowlink"><span>数据来源</span><span class="r">GameKee 蔚蓝档案 WIKI</span></div>' +
