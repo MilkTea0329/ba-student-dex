@@ -33,7 +33,10 @@
 
 ## 2. 把本目录推上去
 
-在 **PowerShell** 里依次执行（把地址换成你自己的）：
+**方式一（推荐，双击即可）**：双击项目根目录里的 **`push-to-github.bat`**，
+把第 1 步复制到的仓库地址粘进去，回车。脚本会自动配好远程仓库并推送。
+
+**方式二（手动）**：在 **PowerShell** 里依次执行（把地址换成你自己的）：
 
 ```powershell
 cd C:\Users\weijunjie\Documents\gamekeedsh
