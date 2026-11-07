@@ -1,0 +1,18 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.__t=function(type,x,y){var target=document.getElementById('detail');var t=new Touch({identifier:1,target:target,clientX:x,clientY:y,pageX:x,pageY:y});var list=type==='touchend'?[]:[t];target.dispatchEvent(new TouchEvent(type,{touches:list,targetTouches:list,changedTouches:[t],bubbles:true,cancelable:true}))};",
+  "shots": [
+    { "name": "I1-open", "wait": 1700, "after": 600,
+      "js": "Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='44388'}).click()" },
+    { "name": "I2-slow-partial", "after": 700, "wait": 100,
+      "js": "new Promise(function(res){window.__t('touchstart',4,420);setTimeout(function(){window.__t('touchmove',40,421);},120);setTimeout(function(){window.__t('touchmove',80,422);},240);setTimeout(function(){window.__t('touchend',80,422);},380);setTimeout(function(){res({transform:document.getElementById('detail').style.transform,stillOpen:!!document.querySelector('.detail.in')})},800)})" },
+    { "name": "I3-slow-commit", "after": 700, "wait": 100,
+      "js": "new Promise(function(res){window.__t('touchstart',4,420);setTimeout(function(){window.__t('touchmove',120,421);},140);setTimeout(function(){window.__t('touchmove',240,422);},300);setTimeout(function(){window.__t('touchend',240,422);},460);setTimeout(function(){res({stillOpen:!!document.querySelector('.detail.in')})},1200)})" },
+    { "name": "I4-final", "after": 300, "wait": 100,
+      "js": "(function(){return {detailOpen:!!document.querySelector('.detail.in'),cards:document.querySelectorAll('.card').length,errs:window.__errs}})()" }
+  ]
+}

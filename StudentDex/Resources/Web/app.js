@@ -847,6 +847,85 @@
     if (state.detail) closeDetail();
   });
 
+  /* ------------------------------------------------- 从左边缘右滑返回上一级 */
+  // 和 iOS 原生返回手势一样：手指跟手拖动详情页，松手时按位移/速度判定。
+  (function initEdgeSwipe() {
+    const EDGE = 30;        // 手指必须落在左侧 30px 内才触发
+    const RATIO = 0.3;      // 拖过屏宽 30% 就返回
+    const VELOCITY = 0.45;  // px/ms，快速轻扫也能返回
+
+    let active = false;
+    let decided = false;
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let startedAt = 0;
+
+    function reset() {
+      active = false;
+      decided = false;
+      dx = 0;
+      detailEl.style.transition = '';
+      detailEl.style.transform = '';
+    }
+
+    detailEl.addEventListener('touchstart', function (e) {
+      if (!state.detail || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (t.clientX > EDGE) return;
+      active = true;
+      decided = false;
+      dx = 0;
+      startX = t.clientX;
+      startY = t.clientY;
+      startedAt = Date.now();
+      detailEl.style.transition = 'none';
+    }, { passive: true });
+
+    detailEl.addEventListener('touchmove', function (e) {
+      if (!active || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+
+      // 竖向为主 → 交给页面滚动，放弃本次手势
+      if (!decided) {
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) { reset(); return; }
+        if (dx > 8) decided = true;
+      }
+      if (dx <= 0) return;
+      if (e.cancelable) e.preventDefault();
+      detailEl.style.transform = 'translateX(' + dx + 'px)';
+    }, { passive: false });
+
+    function finish() {
+      if (!active) return;
+      const width = detailEl.clientWidth || window.innerWidth || 390;
+      const velocity = dx / Math.max(1, Date.now() - startedAt);
+      const back = dx > width * RATIO || (dx > 56 && velocity > VELOCITY);
+      active = false;
+
+      detailEl.style.transition = 'transform .26s cubic-bezier(.32,.72,0,1)';
+      if (!back) {
+        detailEl.style.transform = 'translateX(0)';
+        setTimeout(reset, 280);
+        return;
+      }
+      detailEl.style.transform = 'translateX(100%)';
+      setTimeout(function () {
+        // 先清掉内联样式，再走原来的关闭逻辑，避免视觉跳变
+        detailEl.style.transition = '';
+        detailEl.style.transform = '';
+        closeDetail();
+        dx = 0;
+        decided = false;
+      }, 240);
+    }
+
+    detailEl.addEventListener('touchend', finish);
+    detailEl.addEventListener('touchcancel', finish);
+  })();
+
   /* ----------------------------------------------------------------- events */
   document.addEventListener('click', function (e) {
     const btn = e.target.closest('[data-act]');

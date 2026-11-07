@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.__t=function(type,x,y,target){target=target||document.getElementById('detail');var t=new Touch({identifier:1,target:target,clientX:x,clientY:y,pageX:x,pageY:y});var list=type==='touchend'?[]:[t];target.dispatchEvent(new TouchEvent(type,{touches:list,targetTouches:list,changedTouches:[t],bubbles:true,cancelable:true}))};",
+  "shots": [
+    { "name": "H1-open", "wait": 1700, "after": 600,
+      "js": "Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='44388'}).click()" },
+    { "name": "H2-swipe-partial", "after": 500, "wait": 100,
+      "js": "(function(){window.__t('touchstart',4,400);window.__t('touchmove',90,402);window.__t('touchmove',120,404);window.__t('touchend',120,404);return {transform:document.getElementById('detail').style.transform, open:!!document.querySelector('.detail.in')}})()" },
+    { "name": "H3-swipe-full", "after": 700, "wait": 100,
+      "js": "(function(){window.__t('touchstart',4,400);for(var x=40;x<=300;x+=40)window.__t('touchmove',x,402);window.__t('touchend',300,402);return 'swiped'})()" },
+    { "name": "H4-after", "after": 600, "wait": 100,
+      "js": "(function(){return {detailOpen:!!state_detail_check(),cards:document.querySelectorAll('.card').length,errs:window.__errs};function state_detail_check(){return document.querySelector('.detail.in')}})()" },
+    { "name": "H5-vertical-scroll", "after": 500, "wait": 100,
+      "js": "(function(){Array.from(document.querySelectorAll('[data-act=open]')).find(function(e){return e.dataset.id==='44388'}).click();setTimeout(function(){window.__t('touchstart',4,400);window.__t('touchmove',6,300);window.__t('touchmove',8,200);window.__t('touchend',8,200);},300);return 'ok'})()" },
+    { "name": "H6-still-open", "after": 700, "wait": 100,
+      "js": "(function(){return {stillOpen:!!document.querySelector('.detail.in'),errs:window.__errs}})()" }
+  ]
+}
