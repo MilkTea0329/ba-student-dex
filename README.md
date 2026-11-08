@@ -246,4 +246,4 @@ GET https://api.github.com/repos/MilkTea0329/ba-student-dex/releases/latest
 - 本项目为非官方粉丝作品，与 NEXON Games / Yostar 无任何隶属或合作关系。
 - 权利人如认为内容侵权，请通过 Issue 联系，会立即处理。
 
-完整声明见 [NOTICE](NOTICE)。
+完整声明见 [NOTICE.md](NOTICE.md)。
