@@ -243,12 +243,17 @@
     return !!(s && s.isNew && s.syncedAt && (Date.now() - s.syncedAt) < 7 * 864e5);
   }
 
+  function isUpdatedStudent(s) {
+    return !!(s && s.isUpdated && s.updatedSyncedAt && (Date.now() - s.updatedSyncedAt) < 7 * 864e5);
+  }
+
   function cardHTML(s) {
     return '' +
       '<button class="card" data-act="open" data-id="' + s.id + '">' +
         '<img loading="lazy" src="' + avatarOf(s) + '" alt="' + esc(s.name) + '">' +
         '<span class="scrim"></span>' +
-        (isNewStudent(s) ? '<span class="newbadge">NEW</span>' : '') +
+        (isNewStudent(s) ? '<span class="newbadge">NEW</span>'
+          : (isUpdatedStudent(s) ? '<span class="newbadge upd">更新</span>' : '')) +
         '<span class="meta">' +
           '<span class="nm">' + esc(s.name) + '</span>' +
           '<span class="sub">' + esc(shortSchool(s.school)) + ' · ' + esc(s.role) + '</span>' +
@@ -328,8 +333,10 @@
     const r = st.lastResult;
     if (!r) return '点此检查';
     if (!r.ok) return '检查失败';
-    if (r.added) return '新增 ' + r.added + ' 名';
-    return '已是最新';
+    const parts = [];
+    if (r.added) parts.push('新增 ' + r.added + ' 名');
+    if (r.updated) parts.push('更新 ' + r.updated + ' 名');
+    return parts.length ? parts.join(' · ') : '已是最新';
   }
 
   function lastCheckText() {
@@ -986,8 +993,8 @@
       if (!window.BASync || !window.BASync.available()) { toast('联网同步需在 App 内使用'); return; }
       const st = document.getElementById('sync-status');
       if (st) st.textContent = '检查中…';
-      window.BASync.check({ force: true, known: knownIds() }).then(function (r) {
-        if (r && r.ok && r.added) {
+      window.BASync.check(syncOpts({ force: true })).then(function (r) {
+        if (r && r.ok && (r.added || r.updated)) {
           afterSync(r);
         } else if (r && r.ok) {
           toast('已是最新，共 ' + (r.total || INDEX.length) + ' 名学生');
@@ -1121,35 +1128,72 @@
     }, 2600);
   }
 
-  // 把联网同步到的学生合并进内存数据
+  // 把联网同步到的学生合并进内存数据（新增 + 资料变更）
   function mergeOverlay(ov) {
-    if (!ov) return 0;
+    if (!ov) return { added: 0, updated: 0 };
     let added = 0;
+    let updated = 0;
     (ov.index || []).forEach(function (summary) {
-      if (!summary || !summary.id || BY_ID[summary.id]) return;
+      if (!summary || !summary.id) return;
       const full = (ov.students || {})[summary.id];
+
+      if (BY_ID[summary.id]) {
+        // 已存在：这是「资料有改动」的学生，更新摘要与详情
+        if (full && full.isUpdated) {
+          Object.assign(BY_ID[summary.id], summary);
+          const old = STUDENTS[summary.id];
+          const merged = Object.assign({}, old, full);
+          if (old) {
+            // 同步版不含立绘/头像，别把内置的覆盖掉
+            if (!full.portraits || !full.portraits.length) merged.portraits = old.portraits;
+            if (!full.avatar && old.avatar) merged.avatar = old.avatar;
+          }
+          STUDENTS[summary.id] = merged;
+          BY_ID[summary.id].isUpdated = full.isUpdated;
+          BY_ID[summary.id].updatedSyncedAt = full.updatedSyncedAt;
+          updated++;
+        }
+        return;
+      }
+
       if (full) { summary.isNew = full.isNew; summary.syncedAt = full.syncedAt; }
       INDEX.push(summary);
       BY_ID[summary.id] = summary;
+      if (!STUDENTS[summary.id] && full) STUDENTS[summary.id] = full;
       added++;
     });
-    Object.keys(ov.students || {}).forEach(function (id) {
-      if (!STUDENTS[id]) STUDENTS[id] = ov.students[id];
-    });
     if (added) buildFacets();
-    return added;
+    return { added: added, updated: updated };
   }
 
   function knownIds() {
     return INDEX.map(function (s) { return s.id; });
   }
 
+  // id → 内容更新时间，供同步模块判断「是否被改过」
+  function knownUpdated() {
+    const map = {};
+    INDEX.forEach(function (s) {
+      const full = STUDENTS[s.id];
+      if (full && full.updatedAt) map[s.id] = full.updatedAt;
+    });
+    return map;
+  }
+
+  function syncOpts(extra) {
+    return Object.assign({ known: knownIds(), updated: knownUpdated() }, extra || {});
+  }
+
   function afterSync(result) {
-    if (!result || !result.ok || !result.added) return;
+    if (!result || !result.ok) return;
+    if (!result.added && !result.updated) return;
     window.BASync.load().then(function (ov) {
       mergeOverlay(ov);
-      if (!state.detail) render();
-      toast('已同步 ' + result.added + ' 名新学生');
+      if (state.detail) rerenderBody(); else render();
+      const parts = [];
+      if (result.added) parts.push('新增 ' + result.added + ' 名学生');
+      if (result.updated) parts.push('更新 ' + result.updated + ' 名学生的资料');
+      toast('已' + parts.join('，'));
     });
   }
 
@@ -1159,7 +1203,7 @@
     if (boot) boot.remove();
     if (window.BASync && window.BASync.available()) {
       // 等首屏渲染完再联网，避免拖慢启动
-      setTimeout(function () { window.BASync.check({ known: knownIds() }).then(afterSync); }, 1200);
+      setTimeout(function () { window.BASync.check(syncOpts()).then(afterSync); }, 1200);
     }
   }
 

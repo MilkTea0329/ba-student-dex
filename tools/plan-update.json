@@ -1,0 +1,18 @@
+{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.addEventListener('unhandledrejection',function(e){window.__errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});",
+  "shots": [
+    { "name": "K1-check", "wait": 2500, "after": 200,
+      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);res(st.lastResult);}else if(Date.now()-t0>120000){clearInterval(iv);res({timeout:true,running:st.running});}},500);})" },
+    { "name": "K2-badge", "after": 500, "wait": 100,
+      "js": "(function(){var c=document.querySelector('[data-act=open][data-id=\"227831\"]');return {cardFound:!!c,badge:c?c.querySelector('.newbadge')?c.querySelector('.newbadge').textContent:null:'',badges:document.querySelectorAll('.newbadge').length,errs:window.__errs}})()" },
+    { "name": "K3-detail", "after": 900, "wait": 100,
+      "js": "(function(){var c=document.querySelector('[data-act=open][data-id=\"227831\"]');c.click();document.querySelector('[data-act=dt][data-t=stats]').click();var rows=Array.from(document.querySelectorAll('.stat-table tbody tr')).slice(0,2).map(function(tr){return Array.from(tr.children).map(function(td){return td.textContent.trim()}).join(' | ')});return {rows:rows,errs:window.__errs}})()" },
+    { "name": "K4-persist", "url": "http://127.0.0.1:8123/_test-update.html?keep=1", "wait": 2600, "after": 400,
+      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);res({second:st.lastResult,badges:document.querySelectorAll('.newbadge').length});}else if(Date.now()-t0>90000){clearInterval(iv);res({timeout:true});}},500);})" }
+  ]
+}

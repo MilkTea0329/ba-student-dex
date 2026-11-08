@@ -267,6 +267,9 @@
   /* ------------------------------------------------------------------- check */
   var state = { running: false, lastResult: null, lastCheck: 0, auto: true, token: 0 };
 
+  // bind_updated 与内容 updated_at 有时差 1 秒，留一点容差
+  var STAMP_TOLERANCE = 2;
+
   function check(opts) {
     opts = opts || {};
     if (!hasBridge()) return Promise.resolve({ ok: false, reason: 'no-bridge' });
@@ -291,6 +294,7 @@
         var ov = existing || { version: 1, students: {}, index: [] };
         ov.students = ov.students || {};
         ov.index = ov.index || [];
+        ov.stamps = ov.stamps || {};
 
         // 已知 = 内置数据 + 本地已同步过的（两处都要算，避免重复添加）
         var known = {};
@@ -298,6 +302,14 @@
           .forEach(function (id) { known[id] = 1; });
         ov.index.forEach(function (s) { if (s && s.id) known[s.id] = 1; });
         Object.keys(ov.students).forEach(function (id) { known[id] = 1; });
+
+        // 每个学生上次同步时的 bind_updated；没有记录时用内置数据的 updated_at 兜底
+        var localUpdated = opts.updated || {};
+        function baseline(id) {
+          if (ov.stamps[id]) return ov.stamps[id];
+          var u = localUpdated[id];
+          return u ? u + STAMP_TOLERANCE : 0;
+        }
 
         return fetchJSON(API + '/v1/wiki/entry', { 'game-alias': 'ba' })
           .then(function (tree) {
@@ -307,45 +319,96 @@
             var stu = (g.child || []).filter(function (e) { return e.id === ENTRY_STUDENTS; })[0];
             if (!stu) throw new Error('entry-404');
             var all = stu.child || [];
-            var fresh = all.filter(function (c) { return !known[c.id] && c.content_id; });
-            return { total: all.length, fresh: fresh, ov: ov };
+
+            var fresh = [];
+            var changed = [];
+            all.forEach(function (c) {
+              if (!c.content_id) return;
+              if (!known[c.id]) { fresh.push(c); return; }
+              // 已知学生：bind_updated 变新 → 资料有改动
+              if (c.bind_updated && c.bind_updated > baseline(c.id)) {
+                c.__isUpdate = true;
+                changed.push(c);
+              }
+            });
+            return { total: all.length, all: all, fresh: fresh, changed: changed, ov: ov };
           });
       })
       .then(function (r) {
-        if (!r.fresh.length) {
+        var ov = r.ov;
+        var queue = r.fresh.concat(r.changed);
+        var isChanged = {};
+        r.changed.forEach(function (c) { isChanged[c.id] = 1; });
+
+        if (!queue.length) {
+          // 没有新增/改动：只刷新一次时间戳水位
+          r.all.forEach(function (c) { if (c.bind_updated) ov.stamps[c.id] = c.bind_updated; });
+          ov.updatedAt = now;
           state.running = false;
-          state.lastResult = { ok: true, added: 0, total: r.total, at: now };
-          return { ok: true, added: 0, total: r.total };
+          state.lastResult = { ok: true, added: 0, updated: 0, total: r.total, at: now };
+          return saveOverlay(ov).then(function () {
+            return { ok: true, added: 0, updated: 0, total: r.total };
+          });
         }
-        var todo = r.fresh.slice(0, MAX_NEW_PER_RUN);
-        return (function () {
-          var ov = r.ov;
-          var added = [];
-          var chain = Promise.resolve();
-          todo.forEach(function (item) {
-            chain = chain.then(function () {
-              return buildStudent(item).then(function (s) {
+
+        var todo = queue.slice(0, MAX_NEW_PER_RUN);
+        var todoIds = {};
+        todo.forEach(function (c) { todoIds[c.id] = 1; });
+
+        var added = [];
+        var updated = [];
+        var chain = Promise.resolve();
+        todo.forEach(function (item) {
+          chain = chain.then(function () {
+            return buildStudent(item).then(function (s) {
+              if (isChanged[item.id]) {
+                // 已有学生：保留内置的立绘与头像，避免被空值覆盖
+                delete s.avatar;
+                s.portraits = [];
+                s.isUpdated = true;
+                s.updatedSyncedAt = now;
+                s.syncedAt = now;
+                ov.students[s.id] = s;
+                ov.index = ov.index.filter(function (x) { return x && x.id !== s.id; });
+                ov.index.push(BAParse.summarize(s));
+                updated.push(s);
+              } else if (!ov.students[s.id]) {
                 s.syncedAt = now;
                 s.isNew = true;
-                if (!ov.students[s.id]) {
-                  ov.students[s.id] = s;
-                  ov.index = ov.index.filter(function (x) { return x && x.id !== s.id; });
-                  ov.index.push(BAParse.summarize(s));
-                  added.push(s);
-                }
-              }).catch(function () { /* 单个失败不影响其它 */ });
-            });
+                ov.students[s.id] = s;
+                ov.index = ov.index.filter(function (x) { return x && x.id !== s.id; });
+                ov.index.push(BAParse.summarize(s));
+                added.push(s);
+              }
+              ov.stamps[s.id] = item.bind_updated || now;
+            }).catch(function () { /* 单个失败不影响其它，也不写水位，下次重试 */ });
           });
-          return chain.then(function () {
-            ov.updatedAt = now;
-            ov.count = (ov.index || []).length;
-            return saveOverlay(ov).then(function () {
-              state.running = false;
-              state.lastResult = { ok: true, added: added.length, total: r.total, at: now };
-              return { ok: true, added: added.length, total: r.total, students: added, remaining: r.fresh.length - todo.length };
-            });
+        });
+
+        return chain.then(function () {
+          // 未改动、且本次没处理过的学生，只更新水位
+          r.all.forEach(function (c) {
+            if (!c.bind_updated) return;
+            if (todoIds[c.id]) return;          // 已处理
+            if (isChanged[c.id]) return;        // 改动但本轮没轮到 → 保留旧水位，下次继续
+            ov.stamps[c.id] = c.bind_updated;
           });
-        })();
+          ov.updatedAt = now;
+          ov.count = (ov.index || []).length;
+          return saveOverlay(ov).then(function () {
+            state.running = false;
+            state.lastResult = { ok: true, added: added.length, updated: updated.length, total: r.total, at: now };
+            return {
+              ok: true,
+              added: added.length,
+              updated: updated.length,
+              total: r.total,
+              students: added,
+              updatedStudents: updated,
+              remaining: queue.length - todo.length
+            };
+          });
+        });
       })
       .catch(function (e) {
         state.running = false;

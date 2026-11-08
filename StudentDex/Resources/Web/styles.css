@@ -259,6 +259,11 @@ a { color: var(--accent); text-decoration: none; }
   box-shadow: 0 2px 8px rgba(255, 92, 138, 0.45);
 }
 
+.card .newbadge.upd {
+  background: linear-gradient(135deg, #3b7bfa, #6aa6ff);
+  box-shadow: 0 2px 8px rgba(59, 123, 250, 0.45);
+}
+
 .toast {
   position: fixed;
   left: 50%;
