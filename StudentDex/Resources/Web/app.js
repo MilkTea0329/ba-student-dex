@@ -361,7 +361,7 @@
       '<div class="section-title">数据更新</div>' +
       '<div class="panel">' +
         '<button class="rowlink" data-act="sync-now" style="width:100%;text-align:left">' +
-          '<span>立即检查新学生</span><span class="r"><span id="sync-status">' + syncStatusText() + '</span> ›</span></button>' +
+          '<span>立即同步WIKI数据</span><span class="r"><span id="sync-status">' + syncStatusText() + '</span> ›</span></button>' +
         '<div class="rowlink"><span>上次检查</span><span class="r">' + lastCheckText() + '</span></div>' +
         '<div class="rowlink"><span>自动检查</span><span class="r">每次启动 · 30 分钟内不重复</span></div>' +
       '</div>' +
