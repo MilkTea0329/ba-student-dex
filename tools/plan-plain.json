@@ -1,0 +1,9 @@
+﻿{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.addEventListener('unhandledrejection',function(e){window.__errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});",
+  "shots": [
+    { "name": "P1-plain", "wait": 4500, "after": 300,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();var rows=Array.from(document.querySelectorAll('.rowlink')).map(function(e){return e.textContent.replace(/\\s+/g,' ').trim()});return {cards:document.querySelectorAll('.card').length,about:rows.filter(function(r){return r.indexOf('更新')>=0||r.indexOf('版本')>=0}),dialog:!!document.getElementById('update-modal'),errs:window.__errs}})()" }
+  ]
+}

@@ -33,7 +33,8 @@ final class BridgeHandler: NSObject, WKScriptMessageHandler {
     private static let allowedHosts: Set<String> = [
         "www.gamekee.com",
         "api-cdn.gamekee.com",
-        "cdnimg-v2.gamekee.com"
+        "cdnimg-v2.gamekee.com",
+        "api.github.com"
     ]
 
     private static let userAgent =

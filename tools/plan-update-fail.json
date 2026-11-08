@@ -1,0 +1,13 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});",
+  "shots": [
+    { "name": "O1-fail-auto", "wait": 5200, "after": 300,
+      "js": "(function(){return {dialog:!!document.getElementById('update-modal'),errs:window.__errs}})()" },
+    { "name": "O2-fail-manual", "after": 1000, "wait": 100,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();setTimeout(function(){document.querySelector('[data-act=check-update]').click()},250);return 'ok'})()" },
+    { "name": "O3-toast", "after": 1200, "wait": 100,
+      "js": "(function(){var t=document.querySelector('.toast');return {toast:t?t.textContent:null,status:document.getElementById('update-status')?document.getElementById('update-status').textContent:'',errs:window.__errs}})()" }
+  ]
+}

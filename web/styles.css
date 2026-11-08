@@ -283,6 +283,56 @@ a { color: var(--accent); text-decoration: none; }
   text-align: center;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------------------------------------------------------------- modal */
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 14, 28, 0.52);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.modal-root.open .modal-backdrop { opacity: 1; }
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  max-height: 72vh;
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.94);
+  opacity: 0;
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+}
+.modal-root.open .modal { transform: none; opacity: 1; }
+.modal-head { padding: 18px 18px 8px; }
+.modal-head h3 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.modal-sub { margin-top: 4px; font-size: 12px; color: var(--sub); font-weight: 600; }
+.modal-body {
+  padding: 6px 18px 4px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.66;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-overflow-scrolling: touch;
+}
+.modal-actions { display: flex; gap: 10px; padding: 14px 18px 18px; }
+.modal-actions .btn { flex: 1; }
 .card .fav {
   position: absolute; top: 7px; right: 7px;
   width: 24px; height: 24px; border-radius: 50%;

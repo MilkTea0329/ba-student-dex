@@ -1,0 +1,13 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__opened=[];document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[target=_blank]');if(a){window.__opened.push(a.href);e.preventDefault();}},true);",
+  "shots": [
+    { "name": "N1-dialog", "wait": 5200, "after": 300,
+      "js": "(function(){return {dialog:!!document.getElementById('update-modal')}})()" },
+    { "name": "N2-after-click", "after": 700, "wait": 100,
+      "js": "(function(){document.querySelector('[data-act=modal-update]').click();return 'clicked'})()" },
+    { "name": "N3-gone", "after": 400, "wait": 100,
+      "js": "(function(){return {opened:window.__opened,dialogGone:!document.getElementById('update-modal'),backdropGone:!document.querySelector('.modal-root')}})()" }
+  ]
+}

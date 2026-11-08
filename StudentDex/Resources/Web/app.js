@@ -369,6 +369,8 @@
       '<div class="panel">' +
         '<div class="rowlink"><span>应用名称</span><span class="r">' + esc(APP_NAME) + '</span></div>' +
         '<div class="rowlink"><span>版本</span><span class="r" id="app-version">' + esc(APP_VERSION) + '</span></div>' +
+        '<button class="rowlink" data-act="check-update" style="width:100%;text-align:left">' +
+          '<span>检查更新</span><span class="r" id="update-status">›</span></button>' +
         '<div class="rowlink"><span>学生总数</span><span class="r">' + INDEX.length + ' 名</span></div>' +
         '<div class="rowlink"><span>突击 / 支援</span><span class="r">' + strikes + ' / ' + (INDEX.length - strikes) + '</span></div>' +
         '<div class="rowlink"><span>数据来源</span><span class="r">GameKee 蔚蓝档案 WIKI</span></div>' +
@@ -1005,6 +1007,22 @@
       });
       return;
     }
+    if (act === 'check-update') {
+      const el = document.getElementById('update-status');
+      if (el) el.textContent = '检查中…';
+      checkForUpdate(true).then(function () {
+        if (el) el.textContent = '›';
+      });
+      return;
+    }
+    if (act === 'modal-close') { closeUpdateDialog(); return; }
+    if (act === 'modal-update') {
+      const root = document.getElementById('update-modal');
+      const url = root ? root.dataset.url : '';
+      closeUpdateDialog();
+      if (url) openExternal(url);
+      return;
+    }
     if (act === 'skill') {
       state.detailTab = 'skills';
       state.voiceCat = null;
@@ -1114,6 +1132,82 @@
       '</div>';
   }
 
+  /* ------------------------------------------------------- 版本更新检查 */
+  // Release 里的更新日志是 markdown，这里只做轻量清洗：去标题符号/加粗，链接留文字
+  function formatReleaseNotes(text) {
+    if (!text) return '（该版本没有填写更新说明）';
+    let out = esc(text);
+    out = out.replace(/^#{1,6}\s*/gm, '');
+    out = out.replace(/\*\*(.+?)\*\*/g, '$1');
+    out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+    out = out.replace(/^\s*[-*]\s+/gm, '· ');
+    return out.trim();
+  }
+
+  function closeUpdateDialog() {
+    const root = document.getElementById('update-modal');
+    if (!root) return;
+    root.classList.remove('open');
+    setTimeout(function () { if (root.parentNode) root.parentNode.removeChild(root); }, 240);
+  }
+
+  function openExternal(url) {
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      try { window.open(url, '_blank'); } catch (e2) { /* ignore */ }
+    }
+  }
+
+  function showUpdateDialog(info) {
+    closeUpdateDialog();
+    const root = document.createElement('div');
+    root.className = 'modal-root';
+    root.id = 'update-modal';
+    root.dataset.url = info.url || '';
+    root.innerHTML =
+      '<div class="modal-backdrop" data-act="modal-close"></div>' +
+      '<div class="modal" role="dialog" aria-modal="true">' +
+        '<div class="modal-head">' +
+          '<h3>发现新版本 ' + esc(info.latest) + '</h3>' +
+          '<div class="modal-sub">当前 ' + esc(APP_VERSION) + ' → 最新 ' + esc(info.latest) + '</div>' +
+        '</div>' +
+        '<div class="modal-body">' + formatReleaseNotes(info.notes) + '</div>' +
+        '<div class="modal-actions">' +
+          '<button class="btn ghost" data-act="modal-close">暂不更新</button>' +
+          '<button class="btn primary" data-act="modal-update">立即更新</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(root);
+    requestAnimationFrame(function () { root.classList.add('open'); });
+  }
+
+  // manual=true 时会给用户反馈（已是最新 / 检查失败）
+  function checkForUpdate(manual) {
+    if (!window.BAUpdate) {
+      if (manual) toast('当前版本不支持检查更新');
+      return Promise.resolve(null);
+    }
+    return window.BAUpdate.check(APP_VERSION).then(function (r) {
+      if (!r || !r.ok) {
+        if (manual) toast('检查更新失败：' + ((r && r.error) || '网络错误'));
+        return r;
+      }
+      if (!r.hasUpdate) {
+        if (manual) toast('已是最新版本 ' + APP_VERSION);
+        return r;
+      }
+      showUpdateDialog(r);
+      return r;
+    });
+  }
+
   /* ------------------------------------------------------------------- boot */
 
   function toast(msg) {
@@ -1205,6 +1299,8 @@
       // 等首屏渲染完再联网，避免拖慢启动
       setTimeout(function () { window.BASync.check(syncOpts()).then(afterSync); }, 1200);
     }
+    // 版本检查：每次启动跑一次，失败静默
+    setTimeout(function () { checkForUpdate(false); }, 2600);
   }
 
   tabbar.innerHTML = [

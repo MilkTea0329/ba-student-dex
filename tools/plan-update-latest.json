@@ -1,0 +1,13 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__errs=[];window.__opened=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[target=_blank]');if(a){window.__opened.push(a.href);e.preventDefault();}},true);",
+  "shots": [
+    { "name": "M1-no-update", "wait": 5200, "after": 300,
+      "js": "(function(){return {dialog:!!document.getElementById('update-modal'),errs:window.__errs}})()" },
+    { "name": "M2-manual-latest", "after": 900, "wait": 100,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();setTimeout(function(){document.querySelector('[data-act=check-update]').click()},250);return 'ok'})()" },
+    { "name": "M3-toast", "after": 1200, "wait": 100,
+      "js": "(function(){var t=document.querySelector('.toast');return {toast:t?t.textContent:null,dialog:!!document.getElementById('update-modal'),status:document.getElementById('update-status')?document.getElementById('update-status').textContent:'',errs:window.__errs}})()" }
+  ]
+}

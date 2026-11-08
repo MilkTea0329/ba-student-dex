@@ -1,0 +1,21 @@
+{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.__opened=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});window.addEventListener('unhandledrejection',function(e){window.__errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[target=_blank]');if(a){window.__opened.push(a.href);e.preventDefault();}},true);",
+  "shots": [
+    { "name": "L1-auto-dialog", "wait": 5200, "after": 400,
+      "js": "(function(){var m=document.getElementById('update-modal');if(!m)return {dialog:false,errs:window.__errs};return {dialog:true,title:m.querySelector('h3').textContent,sub:m.querySelector('.modal-sub').textContent,notes:m.querySelector('.modal-body').textContent.slice(0,120),buttons:Array.from(m.querySelectorAll('.modal-actions button')).map(function(b){return b.textContent}),url:m.dataset.url,errs:window.__errs}})()" },
+    { "name": "L2-dialog-shot", "after": 200, "wait": 50, "js": "'x'" },
+    { "name": "L3-click-update", "after": 500, "wait": 100,
+      "js": "(function(){document.querySelector('[data-act=modal-update]').click();return {opened:window.__opened,dialogGone:!document.getElementById('update-modal'),errs:window.__errs}})()" },
+    { "name": "L4-manual-check", "after": 1500, "wait": 100,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();setTimeout(function(){document.querySelector('[data-act=check-update]').click()},300);return 'ok'})()" },
+    { "name": "L5-manual-dialog", "after": 800, "wait": 100,
+      "js": "(function(){var m=document.getElementById('update-modal');return {dialogAgain:!!m,title:m?m.querySelector('h3').textContent:'',status:document.getElementById('update-status')?document.getElementById('update-status').textContent:'',errs:window.__errs}})()" },
+    { "name": "L6-close", "after": 400, "wait": 100,
+      "js": "(function(){var b=document.querySelector('[data-act=modal-close]');if(b)b.click();return 'closed'})()" }
+  ]
+}

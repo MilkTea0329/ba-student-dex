@@ -424,4 +424,11 @@
     state: state,
     reset: function () { state.lastCheck = 0; return rpc({ op: 'store', action: 'save', key: 'overlay', value: '' }); }
   };
+
+  // 给其它模块复用同一套「原生代发请求」能力（绕开 CORS / Referer 限制）
+  root.BAFetch = {
+    text: fetchText,
+    json: fetchJSON,
+    available: hasBridge
+  };
 })(typeof window !== 'undefined' ? window : this);
