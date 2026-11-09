@@ -1,0 +1,20 @@
+{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390,
+  "height": 844,
+  "dpr": 3,
+  "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});",
+  "shots": [
+    { "name": "T1-open-sheet", "wait": 1700, "after": 500,
+      "js": "(function(){document.querySelector('[data-act=filter-open]').click();var b=document.querySelector('.sheet-body');b.scrollTop=b.scrollHeight;return {scrollTop:Math.round(b.scrollTop),scrollHeight:b.scrollHeight}})()" },
+    { "name": "T2-pick-bottom", "after": 500, "wait": 100,
+      "js": "(function(){var chips=Array.from(document.querySelectorAll('.fchip'));var last=chips[chips.length-1];var before=document.querySelector('.sheet-body').scrollTop;last.click();var b=document.querySelector('.sheet-body');return {picked:last.textContent,on:last.classList.contains('on'),scrollBefore:Math.round(before),scrollAfter:Math.round(b.scrollTop),countText:document.querySelector('.sheet-foot .btn.primary').textContent,errs:window.__errs}})()" },
+    { "name": "T3-untick", "after": 400, "wait": 100,
+      "js": "(function(){var chips=Array.from(document.querySelectorAll('.fchip'));var last=chips[chips.length-1];last.click();var b=document.querySelector('.sheet-body');return {on:last.classList.contains('on'),scrollAfter:Math.round(b.scrollTop),countText:document.querySelector('.sheet-foot .btn.primary').textContent}})()" },
+    { "name": "T4-pick-many", "after": 400, "wait": 100,
+      "js": "(function(){var pick=function(k,v){var b=document.querySelector('.fchip[data-k=\"'+k+'\"][data-v=\"'+v+'\"]');if(b)b.click();};pick('attack','爆炸');pick('position','BACK');pick('role','输出');document.querySelector('.sheet-foot .btn.primary').click();return {count:document.querySelector('.count').textContent,activeChips:Array.from(document.querySelectorAll('.chiprow .chip')).map(function(c){return c.textContent.trim()+(c.classList.contains('on')?'[on]':'')})}})()" },
+    { "name": "T5-click-all", "after": 600, "wait": 100,
+      "js": "(function(){var all=Array.from(document.querySelectorAll('.chiprow .chip')).filter(function(c){return c.textContent.indexOf('全部')>=0})[0];all.click();return {count:document.querySelector('.count').textContent,filterChip:Array.from(document.querySelectorAll('.chiprow .chip')).filter(function(c){return c.textContent.indexOf('筛选')>=0})[0].textContent.trim(),cards:document.querySelectorAll('.card').length,errs:window.__errs}})()" }
+  ]
+}

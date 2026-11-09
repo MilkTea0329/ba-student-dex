@@ -963,7 +963,12 @@
     if (act === 'tab') { state.tab = btn.dataset.tab; render(); return; }
     if (act === 'quick') {
       const k = btn.dataset.k;
-      state.filters.rarity = k === 'all' ? [] : [Number(k)];
+      if (k === 'all') {
+        // 点「全部」= 清除所有筛选维度（含稀有度），不只是稀有度
+        state.filters = emptyFilters();
+      } else {
+        state.filters.rarity = [Number(k)];
+      }
       state.query = '';
       render();
       return;
@@ -993,7 +998,9 @@
       const arr = state.draft[k];
       const i = arr.indexOf(v);
       if (i < 0) arr.push(v); else arr.splice(i, 1);
-      renderSheet();
+      // 只更新这个按钮和底部计数，不重绘整个面板（重绘会把滚动位置重置到顶部）
+      btn.classList.toggle('on', arr.indexOf(v) >= 0);
+      updateSheetCount();
       return;
     }
     if (act === 'sync-now') {
@@ -1135,6 +1142,13 @@
         '<div class="sheet-foot"><button class="btn ghost" data-act="filter-reset">重置</button>' +
         '<button class="btn primary" data-act="filter-close">查看 ' + countWith(d) + ' 名学生</button></div>' +
       '</div>';
+  }
+
+  // 只刷新筛选面板底部的「查看 N 名学生」，不重绘整个面板
+  function updateSheetCount() {
+    const btn = sheetRoot.querySelector('.sheet-foot .btn.primary');
+    if (!btn) return;
+    btn.textContent = '查看 ' + countWith(state.draft || emptyFilters()) + ' 名学生';
   }
 
   /* ------------------------------------------------------- 版本更新检查 */
