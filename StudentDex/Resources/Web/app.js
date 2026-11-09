@@ -3,7 +3,7 @@
   'use strict';
 
   const APP_NAME = '什亭之匣';
-  const APP_VERSION = 'V1.0.0';
+  const APP_VERSION = 'V1.0.1';
 
   // 内置数据（打包进 App），联网同步到的新学生会追加到这里
   const INDEX = (window.BA_INDEX || []).slice();
@@ -1194,6 +1194,8 @@
     out = out.replace(/\*\*(.+?)\*\*/g, '$1');
     out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
     out = out.replace(/^\s*[-*]\s+/gm, '· ');
+    out = out.replace(/^\s*-{3,}\s*$/gm, '');   // 去掉分隔线
+    out = out.replace(/\n{3,}/g, '\n\n');
     return out.trim();
   }
 

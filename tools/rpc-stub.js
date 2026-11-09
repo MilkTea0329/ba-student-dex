@@ -7,6 +7,9 @@ const http = require('http');
 
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
+const fs2 = require('fs');
+const path2 = require('path');
+const RELEASE_NOTE_FILE = path2.join(__dirname, '..', 'docs', 'release-notes', 'v1.0.1.md');
 let fakeTag = 'v1.1.0';
 let fakeOff = false;
 
@@ -16,17 +19,9 @@ function fakeRelease(tag) {
     name: '什亭之匣 ' + tag,
     html_url: 'https://github.com/MilkTea0329/ba-student-dex/releases/tag/' + tag,
     published_at: '2026-11-09T00:00:00Z',
-    body: [
-      '## 什亭之匣 ' + tag,
-      '',
-      '本次更新内容：',
-      '',
-      '- 新增「资料变更检测」，WIKI 改动会自动同步',
-      '- 优化左滑返回手势',
-      '**修复**若干已知问题',
-      '',
-      '下载 ipa 后需要自签才能安装，教程见仓库根目录的安装文档。'
-    ].join('\n')
+    body: fs2.existsSync(RELEASE_NOTE_FILE)
+      ? fs2.readFileSync(RELEASE_NOTE_FILE, 'utf8')
+      : '（无更新说明）'
   };
 }
 

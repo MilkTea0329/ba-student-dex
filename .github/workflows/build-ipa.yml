@@ -78,20 +78,15 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # 打 tag（v1.0.0 这类）时，直接把 ipa 挂到 GitHub Release 上，
+      # 打 tag（v1.0.1 这类）时，直接把 ipa 挂到 GitHub Release 上，
       # 这样其他用户无需登录 GitHub 就能下载。
+      # 更新日志来自 docs/release-notes/<tag>.md（每条一行，App 内弹窗会逐条换行显示）。
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           name: 什亭之匣 ${{ github.ref_name }}
-          body: |
-            ## 什亭之匣 ${{ github.ref_name }}
-
-            蔚蓝档案学生图鉴（281 名实装学生 / 离线可用 / 启动自动同步新学生）。
-
-            **下载 `StudentDex.ipa` 后需要自签才能安装**，教程见仓库根目录
-            [`什亭之匣iOS自签安装教程.md`](https://github.com/${{ github.repository }}/blob/main/什亭之匣iOS自签安装教程.md)。
+          body_path: docs/release-notes/${{ github.ref_name }}.md
           files: StudentDex/StudentDex.ipa
           fail_on_unmatched_files: true
 

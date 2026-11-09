@@ -1,0 +1,9 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});",
+  "shots": [
+    { "name": "W1-dialog", "wait": 5200, "after": 400,
+      "js": "(function(){var m=document.getElementById('update-modal');if(!m)return{dialog:false,errs:window.__errs};var body=m.querySelector('.modal-body');var lines=body.textContent.split('\\n').filter(function(x){return x.trim()});return {title:m.querySelector('h3').textContent,sub:m.querySelector('.modal-sub').textContent,lineCount:lines.length,lines:lines,errs:window.__errs}})()" }
+  ]
+}
