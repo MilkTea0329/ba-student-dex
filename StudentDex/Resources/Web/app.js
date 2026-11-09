@@ -767,18 +767,23 @@
 
   function artTab(s) {
     const list = (s.portraits || []).slice();
-    if (!list.length && !(s.hall && s.hall.image)) return '<div class="empty">暂无立绘</div>';
+    const hallRaw = s.hall && typeof s.hall.image === 'string' ? s.hall.image : '';
+    const hallLocal = hallRaw.indexOf('data:') === 0 || hallRaw.indexOf('portraits/') === 0 || hallRaw.indexOf('img/') === 0;
+    if (!list.length && !hallLocal) return '<div class="empty">暂无立绘</div>';
     let html = '<div style="height:14px"></div>';
     html += '<div class="gallery">' + list.map(function (p) {
       return '<figure><img loading="lazy" src="' + p.url + '" alt="">' +
         '<figcaption>' + esc(p.name) + '</figcaption></figure>';
     }).join('');
-    if (s.hall && s.hall.image) {
+    // 只渲染本地图片：同步来的学生会带上远程 URL，加载不出来会变成裂图
+    const hallOk = s.hall && typeof s.hall.image === 'string' &&
+      (s.hall.image.indexOf('data:') === 0 || s.hall.image.indexOf('portraits/') === 0 || s.hall.image.indexOf('img/') === 0);
+    if (hallOk) {
       html += '<figure style="grid-column:1/-1"><img loading="lazy" src="' + s.hall.image + '" style="height:220px" alt="">' +
         '<figcaption>回忆大厅</figcaption></figure>';
     }
     html += '</div>';
-    html += '<div style="margin-top:12px;font-size:11.5px;color:var(--sub);text-align:center">立绘为原图，需要联网加载</div>';
+    html += '<div style="margin-top:12px;font-size:11.5px;color:var(--sub);text-align:center">立绘已随 App 缓存，可离线查看</div>';
     return html;
   }
 
@@ -1241,6 +1246,10 @@
             // 同步版不含立绘/头像，别把内置的覆盖掉
             if (!full.portraits || !full.portraits.length) merged.portraits = old.portraits;
             if (!full.avatar && old.avatar) merged.avatar = old.avatar;
+            // 站位/战术作用在 App 内没有图标映射表，解析出来是空的，
+            // 这时沿用内置的文字值，避免退化成图片标签
+            if (!full.position && old.position) merged.position = old.position;
+            if (!full.tactic && old.tactic) merged.tactic = old.tactic;
           }
           STUDENTS[summary.id] = merged;
           BY_ID[summary.id].isUpdated = full.isUpdated;

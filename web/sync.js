@@ -241,8 +241,11 @@
       });
     });
 
-    // 立绘太大，同步版先不下载（详情页会显示"暂无立绘"）
+    // 立绘 / 回忆大厅体积太大，同步版不下载：
+    // portraits 清空后沿用 App 内置的；hall 必须置空，否则会带一个远程地址
+    // 进到「立绘」页，在 App 内加载不出来变成裂图。
     s.portraits = [];
+    s.hall = { image: '' };
 
     return mapLimit(jobs, 5, function (job) { return job(); });
   }

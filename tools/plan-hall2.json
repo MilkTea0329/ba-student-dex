@@ -1,0 +1,11 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});",
+  "shots": [
+    { "name": "S1-sync", "wait": 2500, "after": 300,
+      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);res(st.lastResult);}else if(Date.now()-t0>120000){clearInterval(iv);res({timeout:true});}},500);})" },
+    { "name": "S2-detail", "after": 1000, "wait": 100,
+      "js": "(function(){var c=document.querySelector('[data-act=open][data-id=\"227831\"]');c.click();var tags=Array.from(document.querySelectorAll('.hero-tags .tag')).map(function(t){return t.textContent||'[img]'});document.querySelector('[data-act=dt][data-t=art]').click();var caps=Array.from(document.querySelectorAll('.gallery figcaption')).map(function(x){return x.textContent});return {tags:tags,captions:caps,broken:Array.from(document.querySelectorAll('#detail img')).filter(function(i){return i.complete&&i.naturalWidth===0}).length,errs:window.__errs}})()" }
+  ]
+}
