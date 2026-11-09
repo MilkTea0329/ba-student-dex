@@ -1097,19 +1097,53 @@
     return { rarity: [], school: [], attack: [], defense: [], position: [], role: [], tactic: [], weapon: [] };
   }
 
+  // 打开筛选面板时锁住页面滚动，避免手指滑动「穿透」到背后的图鉴列表
+  let scrollLockY = 0;
+
+  function lockPageScroll() {
+    if (document.body.dataset.locked === '1') return;
+    scrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.dataset.locked = '1';
+    document.body.style.position = 'fixed';
+    document.body.style.top = (-scrollLockY) + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function unlockPageScroll() {
+    if (document.body.dataset.locked !== '1') return;
+    document.body.dataset.locked = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    window.scrollTo(0, scrollLockY);
+  }
+
   function openSheet() {
     state.draft = JSON.parse(JSON.stringify(state.filters));
     sheetRoot.hidden = false;
+    lockPageScroll();
     requestAnimationFrame(function () { sheetRoot.classList.add('open'); });
     renderSheet();
   }
 
   function closeSheet(apply) {
+    const before = JSON.stringify(state.filters);
     if (apply && state.draft) state.filters = state.draft;
+    const changed = JSON.stringify(state.filters) !== before;
+    const keepY = scrollLockY;
     state.draft = null;
     sheetRoot.classList.remove('open');
     setTimeout(function () { sheetRoot.hidden = true; }, 280);
+    unlockPageScroll();
     render();
+    // 没有实际改动筛选条件时，保持在原来的列表位置（只在真改了筛选后才回到顶部）
+    if (!changed) window.scrollTo(0, keepY);
   }
 
   function countWith(f) {

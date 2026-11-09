@@ -1,0 +1,17 @@
+﻿{
+  "url": "http://127.0.0.1:8123/index.html",
+  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push('error: '+e.message)});",
+  "shots": [
+    { "name": "V1-scroll", "wait": 1700, "after": 300,
+      "js": "(function(){window.scrollTo(0,600);return {y:Math.round(window.scrollY)}})()" },
+    { "name": "V2-open-close-nochange", "after": 700, "wait": 100,
+      "js": "(function(){document.querySelector('[data-act=filter-open]').click();setTimeout(function(){var b=document.querySelector('.sheet-body');b.scrollTop=b.scrollHeight;setTimeout(function(){document.querySelector('.sheet-head .done').click()},200)},200);return 'ok'})()" },
+    { "name": "V3-after-nochange", "after": 900, "wait": 100,
+      "js": "(function(){return {y:Math.round(window.scrollY),bodyPos:document.body.style.position,errs:window.__errs}})()" },
+    { "name": "V4-open-change", "after": 900, "wait": 100,
+      "js": "(function(){document.querySelector('[data-act=filter-open]').click();setTimeout(function(){var c=document.querySelector('.fchip[data-k=\"attack\"][data-v=\"爆炸\"]');c.click();setTimeout(function(){document.querySelector('.sheet-foot .btn.primary').click()},200)},200);return 'ok'})()" },
+    { "name": "V5-after-change", "after": 900, "wait": 100,
+      "js": "(function(){return {y:Math.round(window.scrollY),count:document.querySelector('.count').textContent,errs:window.__errs}})()" }
+  ]
+}

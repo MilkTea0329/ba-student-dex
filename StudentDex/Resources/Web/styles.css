@@ -324,6 +324,7 @@ a { color: var(--accent); text-decoration: none; }
 .modal-body {
   padding: 6px 18px 4px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   font-size: 13px;
   line-height: 1.66;
   color: var(--ink-2);
@@ -802,7 +803,13 @@ a { color: var(--accent); text-decoration: none; }
 }
 .sheet-head h3 { margin: 0; font-size: 17px; font-weight: 800; }
 .sheet-head .done { color: var(--accent); font-weight: 800; font-size: 15px; }
-.sheet-body { overflow-y: auto; padding: 4px 18px 18px; }
+.sheet-body {
+  overflow-y: auto;
+  padding: 4px 18px 18px;
+  /* 面板内部滚到底时不要把滚动传递给背后的页面 */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 .fgroup { margin-top: 14px; }
 .fgroup .fl { font-size: 12px; font-weight: 800; color: var(--sub); margin-bottom: 8px; letter-spacing: 0.02em; }
 .fchips { display: flex; flex-wrap: wrap; gap: 8px; }
