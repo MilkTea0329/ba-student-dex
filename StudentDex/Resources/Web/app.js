@@ -761,7 +761,7 @@
     let hasOff = false;
     let hasFan = false;
     cats.forEach(function (c) {
-      (s.voices[c] || []).forEach(function (v) { if (v.off) hasOff = true; if (v.fan) hasFan = true; });
+      (s.voices[c] || []).forEach(function (v) { if (v.off) hasOff = true; if (v.fan || v.zh) hasFan = true; });
     });
     const mode = state.voiceTrans === 'fan' ? 'fan' : 'off';
 
@@ -800,8 +800,11 @@
     html += '<div class="panel"><div class="panel-body" style="padding:2px 14px">' + items.map(function (v) {
       const key = state.voiceCat + '|' + v.label;
       const langs = (audioReady && audio[key]) ? audio[key] : null;
-      const zh = mode === 'off' ? (v.off || v.fan) : (v.fan || v.off);
-      const isOfficial = mode === 'off' ? !!v.off : (!v.fan && !!v.off);
+      // 兼容旧版同步缓存：那时只有 v.zh（等于现在的民翻）
+      const vFan = v.fan || v.zh || '';
+      const vOff = v.off || '';
+      const zh = mode === 'off' ? (vOff || vFan) : (vFan || vOff);
+      const isOfficial = mode === 'off' ? !!vOff : (!vFan && !!vOff);
       const tag = isOfficial ? '官' : '民';
       let plays = '';
       if (langs) {
