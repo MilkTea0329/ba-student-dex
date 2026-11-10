@@ -413,13 +413,47 @@
       s.review.tiers.push({ name: lq2, value: col(rows[q7], 2), icon: imgOf(rows[q7]) });
     }
 
-    // 媒体
-    s.officialImages = [];
-    for (var q8 = 450; q8 <= 453; q8++) {
-      var ci = (rows[q8] || []).filter(function (c) { return c.t === 'i'; })[0];
-      if (ci) s.officialImages.push(url(ci.v));
+    // 影画鉴赏：官方介绍 / 回忆大厅 / 表情 / 设定集 / TV动画 / 官方衍生 / 视频
+    function imgs(rowIdx) {
+      var r = rows[rowIdx] || [];
+      var out = [];
+      r.forEach(function (c) {
+        if (c.t === 'i') out.push(url(c.v));
+        else if (c.t === 'imageset') {
+          String(c.v || '').split(',').forEach(function (u) { if (u) out.push(url(u)); });
+        }
+      });
+      return out.filter(Boolean);
     }
-    s.expressions = (rows[456] || []).slice(1).map(function (c) { return c.v; }).filter(Boolean).map(url);
+    function videos(rowIdx, name) {
+      var r = rows[rowIdx] || [];
+      var out = [];
+      r.forEach(function (c) {
+        if (c.t === 'video' && c.v) out.push({ label: name || '视频', url: url(c.v) });
+      });
+      return out;
+    }
+
+    s.media = {
+      intro: imgs(450).concat(imgs(451), imgs(452), imgs(453)),   // 官方介绍
+      lobby: imgs(26),                                            // 回忆大厅（静态图）
+      stamps: imgs(456),                                          // 角色表情
+      artbookJp: imgs(461),                                       // 设定集（日语）
+      artbookTw: imgs(462),                                       // 设定集（繁中）
+      tv: imgs(463),                                              // TV动画设定图
+      derivative: imgs(465).concat(imgs(468), imgs(469), imgs(470), imgs(471), imgs(472),
+        imgs(473), imgs(474), imgs(475), imgs(476), imgs(477), imgs(478), imgs(479),
+        imgs(480), imgs(481), imgs(482), imgs(483), imgs(484), imgs(486)),  // 官方衍生 / 本家画
+      videos: videos(489, '角色演示')
+        .concat(videos(490, 'PV'), videos(491, 'PV'), videos(492, 'PV'), videos(493, 'PV'))
+        .concat(videos(494, '回忆大厅视频'), videos(495, '回忆大厅视频'))
+        .concat(videos(496, '独家记忆（中）'), videos(497, '独家记忆（日）'))
+        .concat(videos(498, 'Live'), videos(499, 'Live'), videos(500, 'Live'))
+    };
+
+    // 兼容旧字段
+    s.officialImages = s.media.intro.slice();
+    s.expressions = s.media.stamps.slice();
 
     return s;
   }
