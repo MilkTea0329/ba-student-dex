@@ -1042,6 +1042,7 @@
     root.className = 'mv-root';
     root.id = 'media-viewer';
     root.innerHTML = '<div class="mv-backdrop" data-act="mclose"></div>' +
+      '<button class="mv-close" data-act="mclose" aria-label="关闭">✕</button>' +
       '<div class="mv-body">' +
         (isVideo
           ? '<video id="mv-video" controls playsinline autoplay></video>'

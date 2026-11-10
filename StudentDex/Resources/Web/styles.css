@@ -912,7 +912,10 @@ a { color: var(--accent); text-decoration: none; }
   position: relative; width: 100%; height: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 24px; gap: 10px; opacity: 0; transition: opacity .2s;
+  /* 关键：让出点击，否则整层挡住遮罩，点哪儿都关不掉 */
+  pointer-events: none;
 }
+.mv-body img, .mv-body video, .mv-close { pointer-events: auto; }
 .mv-root.open .mv-body { opacity: 1; }
 .mv-body img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 10px; }
 .mv-body video { max-width: 100%; max-height: 78vh; border-radius: 10px; background: #000; }
@@ -924,3 +927,13 @@ a { color: var(--accent); text-decoration: none; }
   margin: 12px 4px 4px; font-size: 11px; line-height: 1.6;
   color: var(--sub); text-align: center; opacity: .85;
 }
+
+.mv-close {
+  position: absolute; top: calc(12px + var(--safe-t, 0px)); right: 14px;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 0; background: rgba(255,255,255,.16); color: #fff;
+  font-size: 16px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.mv-close:active { background: rgba(255,255,255,.3); }
