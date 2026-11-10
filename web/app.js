@@ -933,6 +933,7 @@
   ];
 
   const mediaBlob = {};     // url -> blob: 地址
+  const mediaPending = {};  // url -> Promise（并发请求合并）
   const mediaLoading = {};  // url -> 1
   const mediaDead = {};     // url -> 1（加载失败，别一直重试）
 
@@ -957,34 +958,45 @@
   function mediaBlobUrl(url) {
     if (mediaBlob[url]) return Promise.resolve(mediaBlob[url]);
     if (mediaDead[url]) return Promise.reject(new Error('failed'));
+    if (mediaPending[url]) return mediaPending[url];
     if (!window.BAFetch || !window.BAFetch.available()) {
-      return Promise.reject(new Error('需在 App 内联网查看'));
+      return Promise.reject(new Error('需在 App 内联网加载'));
     }
+
     const store = window.BASync && window.BASync.cache;
-    // 先查本地缓存，没有再联网拉取，拉到就顺手存盘（下次秒开、可离线）
-    return (store && store.available() ? store.get(url) : Promise.resolve('')).then(function (cached) {
-      if (cached) return cached;
-      return window.BAFetch.b64(url, { Referer: 'https://www.gamekee.com/' }).then(function (b64) {
-        // 大于约 9MB 的文件不缓存，避免把手机塞满
-        if (store && store.available() && b64 && b64.length < 12 * 1024 * 1024) {
-          store.set(url, b64);
-        }
-        return b64;
+    const job = (store && store.available() ? store.get(url) : Promise.resolve(''))
+      .then(function (cached) {
+        if (cached) return cached;
+        // 没缓存就联网拉，拉到顺手存盘（下次秒开、可离线）
+        return window.BAFetch.b64(url, { Referer: 'https://www.gamekee.com/' }).then(function (b64) {
+          // 超过约 9MB 的文件不缓存，避免把手机塞满
+          if (store && store.available() && b64 && b64.length < 12 * 1024 * 1024) {
+            store.set(url, b64);
+          }
+          return b64;
+        });
+      })
+      .then(function (b64) {
+        const bin = atob(b64 || '');
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const mime = /\.mp4$/i.test(url) ? 'video/mp4'
+          : /\.webp$/i.test(url) ? 'image/webp'
+          : /\.jpe?g$/i.test(url) ? 'image/jpeg' : 'image/png';
+        const blob = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        mediaBlob[url] = blob;
+        return blob;
       });
-    }).then(function (b64) {
-      const bin = atob(b64 || '');
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const mime = /\.mp4$/i.test(url) ? 'video/mp4'
-        : /\.webp$/i.test(url) ? 'image/webp'
-        : /\.jpe?g$/i.test(url) ? 'image/jpeg' : 'image/png';
-      const blob = URL.createObjectURL(new Blob([bytes], { type: mime }));
-      mediaBlob[url] = blob;
-      return blob;
-    }).catch(function (e) {
+
+    mediaPending[url] = job.then(function (v) {
+      delete mediaPending[url];
+      return v;
+    }, function (e) {
+      delete mediaPending[url];
       mediaDead[url] = 1;
       throw e;
     });
+    return mediaPending[url];
   }
 
   // 渲染完再按需拉图：只加载滚动到视野内的，避免一进页面就下几 MB
@@ -1036,8 +1048,11 @@
     nodes.forEach(function (n) { mediaIO.observe(n); });
   }
 
+  let viewerToken = 0;
+
   function openMediaViewer(url, isVideo) {
     closeMediaViewer();
+    const token = ++viewerToken;
     const root = document.createElement('div');
     root.className = 'mv-root';
     root.id = 'media-viewer';
@@ -1057,15 +1072,19 @@
     ph.textContent = isVideo ? '视频下载中…' : '加载中…';
     root.querySelector('.mv-body').appendChild(ph);
     mediaBlobUrl(url).then(function (blob) {
+      // 用户已经关掉浮层了：不要挂到已移除的元素上，更不能自动播放
+      if (token !== viewerToken || !root.parentNode) return;
       ph.remove();
       el.src = blob;
       if (isVideo) { const p = el.play(); if (p && p.catch) p.catch(function () {}); }
     }).catch(function (e) {
+      if (token !== viewerToken) return;
       ph.textContent = '加载失败：' + ((e && e.message) || '网络错误');
     });
   }
 
   function closeMediaViewer() {
+    viewerToken++;
     const root = document.getElementById('media-viewer');
     if (!root) return;
     const v = root.querySelector('video');

@@ -47,6 +47,10 @@ const server = http.createServer(async (req, res) => {
   try {
     const msg = JSON.parse(body || '{}');
 
+    // 测试用：视频请求人为延迟，方便验证「下载中退出」的行为
+    const SLOW_VIDEO = /\.mp4$/i.test(msg.url || '');
+    if (SLOW_VIDEO) await new Promise((r) => setTimeout(r, 4000));
+
     if (msg.url && msg.url.indexOf('api.github.com') >= 0) {
       if (fakeOff) throw new Error('fake network off');
       const payload = JSON.stringify(fakeRelease(fakeTag));
