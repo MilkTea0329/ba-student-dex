@@ -466,4 +466,38 @@
 
   // 语音试听地址（按需拉取 + 缓存）
   root.BASync.voiceAudio = voiceAudio;
+
+  /* ------------------------------------------------------------ 素材缓存 */
+  // 原生把文件写到 Documents/ba-media/，这里只负责搬运（base64）
+  function cacheSet(key, b64) {
+    return rpc({ op: 'cache', action: 'set', key: key, data: b64 })
+      .then(function (r) { return r.status === 200; })
+      .catch(function () { return false; });
+  }
+
+  function cacheGet(key) {
+    return rpc({ op: 'cache', action: 'get', key: key })
+      .then(function (r) {
+        if (r.status !== 200 || !r.b64) return '';
+        return r.b64;
+      })
+      .catch(function () { return ''; });
+  }
+
+  function cacheSize() {
+    return rpc({ op: 'cache', action: 'size' })
+      .then(function (r) {
+        var t = decoder ? decoder.decode(r.bytes) : '';
+        return parseInt(t, 10) || 0;
+      })
+      .catch(function () { return 0; });
+  }
+
+  function cacheClear() {
+    return rpc({ op: 'cache', action: 'clear' })
+      .then(function (r) { return r.status === 200; })
+      .catch(function () { return false; });
+  }
+
+  root.BASync.cache = { get: cacheGet, set: cacheSet, size: cacheSize, clear: cacheClear, available: hasBridge };
 })(typeof window !== 'undefined' ? window : this);

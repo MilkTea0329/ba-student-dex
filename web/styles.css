@@ -918,3 +918,9 @@ a { color: var(--accent); text-decoration: none; }
 .mv-body video { max-width: 100%; max-height: 78vh; border-radius: 10px; background: #000; }
 .mv-loading { color: #fff; font-size: 12px; opacity: .8; }
 .mv-hint { color: rgba(255,255,255,.55); font-size: 11px; }
+
+/* 需要联网的提示小字 */
+.netnote {
+  margin: 12px 4px 4px; font-size: 11px; line-height: 1.6;
+  color: var(--sub); text-align: center; opacity: .85;
+}

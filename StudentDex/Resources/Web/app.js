@@ -331,6 +331,15 @@
   }
 
   /* ----------------------------------------------------------------- more */
+  function refreshCacheSize() {
+    if (!window.BASync || !window.BASync.cache || !window.BASync.cache.available()) return;
+    window.BASync.cache.size().then(function (bytes) {
+      state.cacheSizeText = bytes > 0 ? (bytes / 1024 / 1024).toFixed(1) + ' MB' : '0 MB';
+      const el = document.getElementById('cache-size');
+      if (el) el.textContent = state.cacheSizeText;
+    });
+  }
+
   function syncStatusText() {
     if (!window.BASync || !window.BASync.available()) return '需在 App 内使用';
     const st = window.BASync.state;
@@ -353,6 +362,7 @@
   }
 
   function moreView() {
+    setTimeout(refreshCacheSize, 0);
     const schools = uniq(INDEX.map(function (s) { return s.school; })).length;
     const r3 = INDEX.filter(function (s) { return s.rarity === 3; }).length;
     const strikes = INDEX.filter(function (s) { return s.tactic === 'STRIKER'; }).length;
@@ -380,6 +390,12 @@
         '<div class="rowlink"><span>突击 / 支援</span><span class="r">' + strikes + ' / ' + (INDEX.length - strikes) + '</span></div>' +
         '<div class="rowlink"><span>数据来源</span><span class="r">GameKee 蔚蓝档案 WIKI</span></div>' +
         '<div class="rowlink"><span>最新实装</span><span class="r">' + (latestReleaseDate() || '—') + '</span></div>' +
+      '</div>' +
+      '<div class="section-title">存储</div>' +
+      '<div class="panel">' +
+        '<div class="rowlink"><span>素材缓存</span><span class="r" id="cache-size">' + (state.cacheSizeText || '…') + '</span></div>' +
+        '<button class="rowlink" data-act="cache-clear" style="width:100%;text-align:left">' +
+          '<span>清理缓存</span><span class="r">›</span></button>' +
       '</div>' +
       '<div class="section-title">说明</div>' +
       '<div class="panel"><div class="panel-body" style="font-size:12.5px;line-height:1.7;color:var(--sub)">' +
@@ -824,6 +840,7 @@
         (zh ? '<div class="zh"><span class="vtag">' + tag + '</span>' + esc(zh) + '</div>' : '') +
       '</div>';
     }).join('') + '</div></div>';
+    html += '<div class="netnote">语音首次播放需联网加载，之后会缓存到本地</div>';
     return html;
   }
 
@@ -943,7 +960,18 @@
     if (!window.BAFetch || !window.BAFetch.available()) {
       return Promise.reject(new Error('需在 App 内联网查看'));
     }
-    return window.BAFetch.b64(url, { Referer: 'https://www.gamekee.com/' }).then(function (b64) {
+    const store = window.BASync && window.BASync.cache;
+    // 先查本地缓存，没有再联网拉取，拉到就顺手存盘（下次秒开、可离线）
+    return (store && store.available() ? store.get(url) : Promise.resolve('')).then(function (cached) {
+      if (cached) return cached;
+      return window.BAFetch.b64(url, { Referer: 'https://www.gamekee.com/' }).then(function (b64) {
+        // 大于约 9MB 的文件不缓存，避免把手机塞满
+        if (store && store.available() && b64 && b64.length < 12 * 1024 * 1024) {
+          store.set(url, b64);
+        }
+        return b64;
+      });
+    }).then(function (b64) {
       const bin = atob(b64 || '');
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -1077,8 +1105,10 @@
         '</figure>';
     }).join('') + '</div>';
 
-    html += '<div style="margin-top:12px;font-size:11.5px;color:var(--sub);text-align:center">' +
-      (state.mediaCat === 'portraits' ? '立绘已随 App 缓存，可离线查看' : '素材为原始画质，点击可放大查看（需联网加载）') +
+    html += '<div class="netnote">' +
+      (state.mediaCat === 'portraits'
+        ? '立绘已随 App 缓存，离线可看'
+        : '此类素材首次查看需联网，加载后自动缓存到本地，之后可离线查看') +
       '</div>';
 
     setTimeout(loadMediaImages, 0);
@@ -1320,6 +1350,18 @@
           toast('检查失败：' + ((r && r.error) || '网络错误'));
         }
         if (!state.detail) render();
+      });
+      return;
+    }
+    if (act === 'cache-clear') {
+      if (!window.BASync || !window.BASync.cache || !window.BASync.cache.available()) { toast('需在 App 内使用'); return; }
+      window.BASync.cache.clear().then(function (ok) {
+        Object.keys(mediaBlob).forEach(function (k) { delete mediaBlob[k]; });
+        Object.keys(mediaDead).forEach(function (k) { delete mediaDead[k]; });
+        state.cacheSizeText = '0 MB';
+        const el = document.getElementById('cache-size');
+        if (el) el.textContent = '0 MB';
+        toast(ok ? '缓存已清理' : '清理失败');
       });
       return;
     }
