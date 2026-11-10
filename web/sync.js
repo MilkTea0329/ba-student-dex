@@ -38,7 +38,7 @@
     var p = pending[id];
     if (!p) return;
     delete pending[id];
-    p.resolve({ status: status, bytes: bytesFromBase64(b64) });
+    p.resolve({ status: status, bytes: bytesFromBase64(b64), b64: b64 || '' });
   };
 
   function rpc(payload) {
@@ -72,6 +72,34 @@
 
   function fetchJSON(url, headers) {
     return fetchText(url, headers).then(function (t) { return JSON.parse(t); });
+  }
+
+  // 二进制（音频）：直接返回原生给的 base64，交给页面转 Blob
+  function fetchBase64(url, headers) {
+    return rpc({ op: 'fetch', url: url, headers: headers || {} }).then(function (r) {
+      if (r.status === 0) throw new Error('network');
+      if (r.status !== 200) throw new Error('http-' + r.status);
+      return r.b64;
+    });
+  }
+
+  /* --------------------------------------------------------- 语音试听地址 */
+  // 内置数据里不带音频地址（太大），点播放时按需向 WIKI 拉一次并缓存。
+  var voiceAudioCache = {};
+
+  function voiceAudio(id, contentId) {
+    if (!hasBridge()) return Promise.resolve(null);
+    if (voiceAudioCache[id]) return Promise.resolve(voiceAudioCache[id]);
+    return loadOverlay().then(function (ov) {
+      var synced = ov && ov.students && ov.students[id];
+      if (synced && synced.voiceAudio) { voiceAudioCache[id] = synced.voiceAudio; return synced.voiceAudio; }
+      // 原生 store 只有一个键（整个 overlay），所以语音地址只做内存缓存，不落盘
+      return getStudentRaw({ id: id, content_id: contentId }).then(function (raw) {
+        var map = BAParse.extractVoiceAudio(BAParse.compactRows(raw.inner.baseData));
+        voiceAudioCache[id] = map;
+        return map;
+      });
+    }).catch(function () { return null; });
   }
 
   /* ------------------------------------------------------------------ store */
@@ -432,6 +460,10 @@
   root.BAFetch = {
     text: fetchText,
     json: fetchJSON,
+    b64: fetchBase64,
     available: hasBridge
   };
+
+  // 语音试听地址（按需拉取 + 缓存）
+  root.BASync.voiceAudio = voiceAudio;
 })(typeof window !== 'undefined' ? window : this);

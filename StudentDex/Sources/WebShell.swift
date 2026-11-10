@@ -117,7 +117,7 @@ struct WebShell: UIViewRepresentable {
     func makeUIView(context: Context) -> ShellWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
-        configuration.mediaTypesRequiringUserActionForPlayback = .all
+        configuration.mediaTypesRequiringUserActionForPlayback = []
 
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true

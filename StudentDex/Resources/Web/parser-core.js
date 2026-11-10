@@ -69,6 +69,34 @@
     return '';
   }
 
+  // 取某列的音频地址（WIKI 的语音单元格 type = 'audio'）
+  function audioOf(row, i) {
+    if (!row) return '';
+    for (var k = 0; k < row.length; k++) {
+      if (row[k].c === i && row[k].t === 'audio') return url(row[k].v);
+    }
+    return '';
+  }
+
+  // 语音表所在行范围与分类（同一套模板里位置固定）
+  var VOICE_CATS = { '通常': 1, '大厅及咖啡馆': 1, '好感度': 1, '战斗': 1, '成长': 1, '事件': 1, '活动': 1 };
+
+  // 从行数据里抽取「分类|标题 -> [日配, 中配, 韩配]」的音频表
+  function extractVoiceAudio(rows) {
+    var out = {};
+    var h = helpers(rows);
+    for (var i = 295; i <= 447; i++) {
+      var cat = h.col(rows[i], 0);
+      var lb = h.col(rows[i], 1);
+      if (!cat || !lb || !VOICE_CATS[cat]) continue;
+      var jp = audioOf(rows[i], 4);
+      var cn = audioOf(rows[i], 6);
+      var kr = audioOf(rows[i], 7);
+      if (jp || cn || kr) out[cat + '|' + lb] = [jp, cn, kr];
+    }
+    return out;
+  }
+
   function hashOfUrl(u) {
     if (!URL_HASH || !u) return '';
     var h = URL_HASH[u];
@@ -307,18 +335,33 @@
       s.sameName.push({ name: nm, icon: imgOf(rows[q4]), url: link });
     }
 
-    // 语音
+    // 语音：日文原文 + 官翻(第 5 列) / 民翻(第 3 列)，另存三语试听地址
     var voices = {};
+    var voiceAudio = {};
     for (var q5 = 295; q5 <= 447; q5++) {
       var cat = col(rows[q5], 0);
       var lb = col(rows[q5], 1);
-      if (!cat || !lb) continue;
+      if (!cat || !lb || !VOICE_CATS[cat]) continue;
       var jp = col(rows[q5], 2);
-      var zh = col(rows[q5], 5) || col(rows[q5], 3);
-      if (!jp && !zh) continue;
-      (voices[cat] = voices[cat] || []).push({ label: lb, jp: jp, zh: zh });
+      var fan = col(rows[q5], 3);   // 民间翻译
+      var off = col(rows[q5], 5);   // 官方翻译，没有官方时为空
+      var aJp = audioOf(rows[q5], 4);
+      var aCn = audioOf(rows[q5], 6);
+      var aKr = audioOf(rows[q5], 7);
+      if (!jp && !fan && !off && !aJp && !aCn && !aKr) continue;
+      (voices[cat] = voices[cat] || []).push({ label: lb, jp: jp, fan: fan, off: off });
+      if (aJp || aCn || aKr) voiceAudio[cat + '|' + lb] = [aJp, aCn, aKr];
     }
     s.voices = voices;
+    s.voiceAudio = voiceAudio;
+
+    // 声优（日 / 中 / 韩），形如「日 | 藤井ゆきよ\n中 | 陈婷婷\n韩 | 김이안（金怡侒）」
+    s.cv = { jp: '', cn: '', kr: '' };
+    String(col(rows[251], 1) || '').split(/\n/).forEach(function (line) {
+      var m = line.match(/^\s*(日|中|韩)\s*[|｜]\s*(.+?)\s*$/);
+      if (!m) return;
+      s.cv[m[1] === '日' ? 'jp' : (m[1] === '中' ? 'cn' : 'kr')] = m[2];
+    });
 
     // 数值
     s.stats = {
@@ -421,6 +464,7 @@
     parseStudent: parseStudent,
     compactRows: compactRows,
     summarize: summarize,
-    setIconMap: setIconMap
+    setIconMap: setIconMap,
+    extractVoiceAudio: extractVoiceAudio
   };
 });

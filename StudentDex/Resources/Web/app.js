@@ -46,6 +46,10 @@
     detailTab: 'overview',
     skillLv: {},
     voiceCat: null,
+    voiceTrans: 'off',        // 'off' 官方翻译 / 'fan' 民间翻译
+    voiceAudio: undefined,    // undefined=未请求; null=加载中; {}=无音频
+    voiceAudioFor: null,      // 当前 audio 属于哪个学生
+    voiceAudioLoading: {},    // id -> 1（避免重复请求）
     sheetOpen: false,
     draft: null,
   };
@@ -752,17 +756,145 @@
     const cats = Object.keys(s.voices || {});
     if (!cats.length) return '<div class="empty">暂无语音资料</div>';
     if (!state.voiceCat || cats.indexOf(state.voiceCat) < 0) state.voiceCat = cats[0];
-    const items = s.voices[state.voiceCat] || [];
-    let html = '<div style="height:14px"></div><div class="voice-cat">' + cats.map(function (c) {
+
+    // 是否有官方翻译 / 民间翻译（任意一条即可）
+    let hasOff = false;
+    let hasFan = false;
+    cats.forEach(function (c) {
+      (s.voices[c] || []).forEach(function (v) { if (v.off) hasOff = true; if (v.fan) hasFan = true; });
+    });
+    const mode = state.voiceTrans === 'fan' ? 'fan' : 'off';
+
+    // 试听地址按需加载（内置数据里不带，太大）
+    const audio = state.voiceAudioFor === s.id ? state.voiceAudio : undefined;
+    if (audio === undefined) loadVoiceAudio(s);
+    const audioReady = audio && Object.keys(audio).length > 0;
+
+    // 声优
+    const cv = s.cv || {};
+    const cvBits = [];
+    if (cv.jp) cvBits.push(['日配', cv.jp]);
+    if (cv.cn) cvBits.push(['中配', cv.cn]);
+    if (cv.kr) cvBits.push(['韩配', cv.kr]);
+
+    let html = '<div style="height:14px"></div>';
+    if (cvBits.length) {
+      html += '<div class="cv-line">' + cvBits.map(function (b) {
+        return '<span><b>' + esc(b[0]) + '</b>' + esc(b[1]) + '</span>';
+      }).join('') + '</div>';
+    }
+    html += '<div class="voice-cat">' + cats.map(function (c) {
       return '<button class="chip ' + (c === state.voiceCat ? 'on' : '') + '" data-act="vcat" data-c="' + esc(c) + '">' + esc(c) +
         '<span style="opacity:.6;font-weight:600">' + s.voices[c].length + '</span></button>';
     }).join('') + '</div>';
+
+    if (hasOff && hasFan) {
+      html += '<div class="vtrans">' +
+        '<span class="vtrans-label">译文</span>' +
+        '<button class="vchip ' + (mode === 'off' ? 'on' : '') + '" data-act="vtrans" data-m="off">官方翻译</button>' +
+        '<button class="vchip ' + (mode === 'fan' ? 'on' : '') + '" data-act="vtrans" data-m="fan">民间翻译</button>' +
+      '</div>';
+    }
+
+    const items = s.voices[state.voiceCat] || [];
     html += '<div class="panel"><div class="panel-body" style="padding:2px 14px">' + items.map(function (v) {
-      return '<div class="voice-item"><div class="lb">' + esc(v.label) + '</div>' +
+      const key = state.voiceCat + '|' + v.label;
+      const langs = (audioReady && audio[key]) ? audio[key] : null;
+      const zh = mode === 'off' ? (v.off || v.fan) : (v.fan || v.off);
+      const isOfficial = mode === 'off' ? !!v.off : (!v.fan && !!v.off);
+      const tag = isOfficial ? '官' : '民';
+      let plays = '';
+      if (langs) {
+        const names = ['日', '中', '韩'];
+        plays = '<span class="vplays">' + langs.map(function (u, i) {
+          if (!u) return '';
+          return '<button class="vplay" data-act="vplay" data-url="' + esc(u) + '" data-key="' + esc(key) + '" data-lang="' + i +
+            '" title="' + names[i] + '配">' + '<i>▶</i>' + names[i] + '</button>';
+        }).join('') + '</span>';
+      } else if (audio === null) {
+        plays = '<span class="vplays loading">载入试听…</span>';
+      }
+      return '<div class="voice-item">' +
+        '<div class="vtop"><span class="lb">' + esc(v.label) + '</span>' + plays + '</div>' +
         (v.jp ? '<div class="jp">' + esc(v.jp) + '</div>' : '') +
-        (v.zh ? '<div class="zh">' + esc(v.zh) + '</div>' : '') + '</div>';
+        (zh ? '<div class="zh"><span class="vtag">' + tag + '</span>' + esc(zh) + '</div>' : '') +
+      '</div>';
     }).join('') + '</div></div>';
     return html;
+  }
+
+  /* -------------------------------------------------------- 语音试听 */
+
+  // 内置数据不带音频地址，第一次进「语音」页时向 WIKI 拉一份，之后走缓存
+  function loadVoiceAudio(s) {
+    if (!window.BASync || !window.BASync.voiceAudio) return;
+    if (state.voiceAudioLoading[s.id]) return;
+    state.voiceAudioLoading[s.id] = 1;
+    state.voiceAudioFor = s.id;
+    state.voiceAudio = null;
+    window.BASync.voiceAudio(s.id, s.contentId).then(function (map) {
+      delete state.voiceAudioLoading[s.id];
+      if (state.detail !== s.id) return;
+      state.voiceAudio = map || {};
+      if (state.detailTab === 'voice') rerenderBody();
+    });
+  }
+
+  const audioUrlCache = {};
+  let curAudio = null;
+  let curKey = '';
+
+  function stopVoice() {
+    const on = detailEl.querySelector('.vplay.on');
+    if (on) on.classList.remove('on');
+    if (curAudio) {
+      try { curAudio.pause(); } catch (e) { /* ignore */ }
+      curAudio = null;
+    }
+    curKey = '';
+  }
+
+  // 音频从原生桥取（CDN 校验 Referer，网页侧拿不到），转成 Blob URL 播放
+  function resolveAudioUrl(url) {
+    if (audioUrlCache[url]) return Promise.resolve(audioUrlCache[url]);
+    if (!window.BAFetch || !window.BAFetch.available()) {
+      return Promise.reject(new Error('需要在 App 内联网播放'));
+    }
+    return window.BAFetch.b64(url, { Referer: 'https://www.gamekee.com/' }).then(function (b64) {
+      const bin = atob(b64 || '');
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const mime = /\.mp3$/i.test(url) ? 'audio/mpeg' : 'audio/ogg';
+      const obj = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      audioUrlCache[url] = obj;
+      return obj;
+    });
+  }
+
+  function playVoice(btn) {
+    const url = btn.dataset.url;
+    if (!url) return;
+    const key = btn.dataset.key + ':' + btn.dataset.lang;
+    if (curKey === key && curAudio) { stopVoice(); return; }
+    stopVoice();
+    curKey = key;
+    btn.classList.add('loading');
+    resolveAudioUrl(url).then(function (objUrl) {
+      btn.classList.remove('loading');
+      const a = new Audio(objUrl);
+      curAudio = a;
+      a.onended = function () {
+        btn.classList.remove('on');
+        if (curAudio === a) { curAudio = null; curKey = ''; }
+      };
+      btn.classList.add('on');
+      const p = a.play();
+      if (p && p.catch) p.catch(function () { btn.classList.remove('on'); stopVoice(); toast('播放失败，请重试'); });
+    }).catch(function (e) {
+      btn.classList.remove('loading');
+      curKey = '';
+      toast('语音加载失败：' + ((e && e.message) || '网络错误'));
+    });
   }
 
   function artTab(s) {
@@ -838,7 +970,11 @@
   function rerenderBody() {
     if (state.detail) {
       const s = STUDENTS[state.detail];
+      const body = detailEl.querySelector('.detail-body');
+      const y = body ? body.scrollTop : 0;
       detailEl.innerHTML = detailHTML(s);
+      const next = detailEl.querySelector('.detail-body');
+      if (next && y) next.scrollTop = y;
     } else {
       render();
     }
@@ -857,6 +993,7 @@
 
   function closeDetail() {
     if (!state.detail) return;
+    stopVoice();
     detailEl.classList.remove('in');
     state.detail = null;
     render();
@@ -1043,9 +1180,11 @@
       if (target) target.scrollIntoView({ block: 'start' });
       return;
     }
-    if (act === 'dt') { state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
+    if (act === 'dt') { stopVoice(); state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
-    if (act === 'vcat') { state.voiceCat = btn.dataset.c; rerenderBody(); return; }
+    if (act === 'vcat') { stopVoice(); state.voiceCat = btn.dataset.c; rerenderBody(); return; }
+    if (act === 'vtrans') { state.voiceTrans = btn.dataset.m; rerenderBody(); return; }
+    if (act === 'vplay') { playVoice(btn); return; }
   });
 
   // --------------------------------------------------------------- search
