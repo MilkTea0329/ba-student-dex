@@ -51,6 +51,7 @@
     voiceAudioFor: null,      // 当前 audio 属于哪个学生
     voiceAudioLoading: {},    // id -> 1（避免重复请求）
     mediaCat: null,           // 影画鉴赏当前分类
+    netToast: 0,
     sheetOpen: false,
     draft: null,
   };
@@ -1724,7 +1725,26 @@
     });
   }
 
+  function bindSyncEvents() {
+    if (!window.BASync || !window.BASync.onEvent) return;
+    window.BASync.onEvent(function (type) {
+      if (type === 'waiting-network') {
+        const el = document.getElementById('sync-status');
+        if (el) el.textContent = '等待网络…';
+        if (!state.netToast) {
+          state.netToast = 1;
+          toast('等待网络连接…在系统弹窗点「允许」后会自动继续');
+        }
+      } else if (type === 'network-ok') {
+        state.netToast = 0;
+        const el = document.getElementById('sync-status');
+        if (el) el.textContent = '同步中…';
+      }
+    });
+  }
+
   function startApp() {
+    bindSyncEvents();
     render();
     const boot = document.getElementById('boot');
     if (boot) boot.remove();

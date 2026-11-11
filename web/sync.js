@@ -24,6 +24,11 @@
   var pending = {};
   var decoder = (typeof TextDecoder !== 'undefined') ? new TextDecoder('utf-8') : null;
 
+  var listeners = [];
+  function emit(type, data) {
+    listeners.forEach(function (fn) { try { fn(type, data); } catch (e) {} });
+  }
+
   function hasBridge() {
     return !!(root.webkit && root.webkit.messageHandlers && root.webkit.messageHandlers.ba);
   }
@@ -73,6 +78,26 @@
 
   function fetchJSON(url, headers) {
     return fetchText(url, headers).then(function (t) { return JSON.parse(t); });
+  }
+
+  // iOS 首次启动时系统会弹「允许 App 使用无线数据」，点「允许」之前所有请求都会失败。
+  // 这里每隔 1 秒重试一次，用户一点允许就能立刻继续，最多等 90 秒。
+  function fetchJSONRetry(url, headers, tag) {
+    var attempt = 0;
+    var MAX = 90;
+    function go() {
+      return fetchJSON(url, headers).catch(function (e) {
+        if (String(e && e.message) !== 'network') throw e;   // 只对「没网」重试
+        attempt++;
+        if (attempt > MAX) throw e;
+        if (attempt === 1) { state.waitingNetwork = true; emit('waiting-network', { tag: tag }); }
+        return new Promise(function (r) { setTimeout(r, 1000); }).then(go);
+      });
+    }
+    return go().then(function (v) {
+      if (attempt > 0) { state.waitingNetwork = false; emit('network-ok', { tag: tag, attempts: attempt }); }
+      return v;
+    });
   }
 
   // 二进制（音频）：直接返回原生给的 base64，交给页面转 Blob
@@ -348,7 +373,7 @@
           return u ? u + STAMP_TOLERANCE : 0;
         }
 
-        return fetchJSON(API + '/v1/wiki/entry', { 'game-alias': 'ba' })
+        return fetchJSONRetry(API + '/v1/wiki/entry', { 'game-alias': 'ba' }, 'check')
           .then(function (tree) {
             var roots = (tree && tree.data && tree.data.entry_list) || [];
             var g = roots.filter(function (e) { return e.id === ENTRY_ROOT; })[0];
@@ -460,7 +485,9 @@
     load: loadOverlay,
     check: check,
     state: state,
-    reset: function () { state.lastCheck = 0; return rpc({ op: 'store', action: 'save', key: 'overlay', value: '' }); }
+    reset: function () { state.lastCheck = 0; return rpc({ op: 'store', action: 'save', key: 'overlay', value: '' }); },
+    onEvent: function (fn) { if (typeof fn === 'function') listeners.push(fn); },
+    waitingNetwork: false
   };
 
   // 给其它模块复用同一套「原生代发请求」能力（绕开 CORS / Referer 限制）
