@@ -17,7 +17,8 @@
   var ENTRY_ROOT = 23941;   // 游戏图鉴
   var ENTRY_STUDENTS = 49443; // 实装学生
   var CHECK_INTERVAL = 30 * 60 * 1000; // 同一份数据 30 分钟内不重复检查
-  var MAX_NEW_PER_RUN = 6;             // 一次最多处理几个新学生，剩下的下次再来
+  var RUN_TIMEOUT = 10 * 60 * 1000;    // 一次同步最多跑 10 分钟（每个学生完成会刷新）
+  var MAX_NEW_PER_RUN = 200;           // 正常情况下一次同步完，只有极端积压才会分批
 
   var seq = 0;
   var pending = {};
@@ -312,13 +313,18 @@
     state.running = true;
     state.lastCheck = now;
     var myToken = ++state.token;
-    // 兜底：任何一步卡死都不会让 running 永远为 true
-    setTimeout(function () {
-      if (state.running && state.token === myToken) {
-        state.running = false;
-        state.lastResult = { ok: false, error: 'timeout', at: now };
-      }
-    }, 150000);
+    // 兜底：任何一步卡死都不会让 running 永远为 true；每处理完一个学生会刷新
+    var watchdog = null;
+    function bumpWatchdog() {
+      if (watchdog) clearTimeout(watchdog);
+      watchdog = setTimeout(function () {
+        if (state.running && state.token === myToken) {
+          state.running = false;
+          state.lastResult = { ok: false, error: 'timeout', at: now };
+        }
+      }, RUN_TIMEOUT);
+    }
+    bumpWatchdog();
 
     return loadOverlay()
       .then(function (existing) {
@@ -412,6 +418,7 @@
                 added.push(s);
               }
               ov.stamps[s.id] = item.bind_updated || now;
+              bumpWatchdog();
             }).catch(function () { /* 单个失败不影响其它，也不写水位，下次重试 */ });
           });
         });

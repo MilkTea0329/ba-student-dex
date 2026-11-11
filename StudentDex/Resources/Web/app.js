@@ -1718,7 +1718,9 @@
       const parts = [];
       if (result.added) parts.push('新增 ' + result.added + ' 名学生');
       if (result.updated) parts.push('更新 ' + result.updated + ' 名学生的资料');
-      toast('已' + parts.join('，'));
+      let msg = '已' + parts.join('，');
+      if (result.remaining > 0) msg += '（还有 ' + result.remaining + ' 名，下次启动继续）';
+      toast(msg);
     });
   }
 
