@@ -250,11 +250,11 @@
 
   /* ----------------------------------------------------------------- list */
   function isNewStudent(s) {
-    return !!(s && s.isNew && s.syncedAt && (Date.now() - s.syncedAt) < 7 * 864e5);
+    return !!(s && s.isNew && s.syncedAt && (Date.now() - s.syncedAt) < 3 * 864e5);
   }
 
   function isUpdatedStudent(s) {
-    return !!(s && s.isUpdated && s.updatedSyncedAt && (Date.now() - s.updatedSyncedAt) < 7 * 864e5);
+    return !!(s && s.isUpdated && s.updatedSyncedAt && (Date.now() - s.updatedSyncedAt) < 3 * 864e5);
   }
 
   function cardHTML(s) {

@@ -1,0 +1,9 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "D01", "wait": 3000, "after": 200,
+      "js": "(function(){return {hasIndex:typeof window.BA_INDEX,hasStudents:typeof window.BA_STUDENTS,keys:window.BA_STUDENTS?Object.keys(window.BA_STUDENTS).length:null,scripts:Array.from(document.scripts).map(function(s){return s.src.split('/').pop()}),errs:window.__errs}})()" }
+  ]
+}

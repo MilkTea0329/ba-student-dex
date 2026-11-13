@@ -1,11 +1,17 @@
 ﻿{
   "url": "http://127.0.0.1:8123/_test-update.html",
-  "width": 390, "height": 844, "dpr": 3, "outDir": "shots",
-  "preScript": "window.__errs=[];",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
   "shots": [
-    { "name": "BD1-wait", "wait": 3000, "after": 200,
-      "js": "new Promise(function(res){var t0=Date.now();var iv=setInterval(function(){var st=window.BASync.state;if(st.lastResult&&!st.running){clearInterval(iv);res(st.lastResult);}else if(Date.now()-t0>300000){clearInterval(iv);res({timeout:true});}},1000);})" },
-    { "name": "BD2-probe", "after": 1200, "wait": 200,
-      "js": "(function(){var ov=null;try{ov=JSON.parse(localStorage.getItem('ba_test_store')||'{}')}catch(e){}var keys=Object.keys((ov&&ov.students)||{});var sample=keys.slice(0,3).map(function(k){var s=ov.students[k];return {id:k,isUpdated:!!s.isUpdated,at:s.updatedSyncedAt}});var cards=Array.from(document.querySelectorAll('.card')).slice(0,3).map(function(c){var b=c.querySelector('.newbadge');return {id:c.dataset.id,badge:b?b.textContent:null}});return {overlayStudents:keys.length,isUpdatedFlags:sample.map(function(x){return x.isUpdated}),cards:cards,indexHasUpdated:(ov.index||[]).filter(function(x){return x.isUpdated}).length,errs:window.__errs}})()" }
+    { "name": "B01-load", "wait": 3500, "after": 300,
+      "js": "(function(){var s=window.BA_STUDENTS[148495];var sum=window.BA_INDEX.filter(function(x){return x.id===148495})[0];if(!s||!sum)return{noData:true};var old=Object.assign({},s,{isNew:true,syncedAt:Date.now()-4*864e5});localStorage.setItem('ba_test_store',JSON.stringify({version:1,students:{'148495':old},index:[sum],stamps:{}}));return {seeded:true}})()" },
+    { "name": "B02-reload", "url": "http://127.0.0.1:8123/_test-update.html?keep=1", "wait": 4000, "after": 400,
+      "js": "(function(){var c=document.querySelector('.card[data-id=\"148495\"]');var b=c?c.querySelector('.newbadge'):null;return {case:'NEW 4 天前',badge:b?b.textContent:null}})()" },
+    { "name": "B03-seed2d", "after": 400, "wait": 100,
+      "js": "(function(){var s=window.BA_STUDENTS[148495];var sum=window.BA_INDEX.filter(function(x){return x.id===148495})[0];var fresh=Object.assign({},s,{isUpdated:true,updatedSyncedAt:Date.now()-2*864e5});localStorage.setItem('ba_test_store',JSON.stringify({version:1,students:{'148495':fresh},index:[sum],stamps:{}}));return {seeded:true}})()" },
+    { "name": "B04-reload2", "url": "http://127.0.0.1:8123/_test-update.html?keep=1", "wait": 4000, "after": 400,
+      "js": "(function(){var c=document.querySelector('.card[data-id=\"148495\"]');var b=c?c.querySelector('.newbadge'):null;return {case:'更新 2 天前',badge:b?b.textContent:null}})()" },
+    { "name": "B05-errs", "after": 300, "wait": 100,
+      "js": "(function(){return {errs:window.__errs}})()" }
   ]
 }
