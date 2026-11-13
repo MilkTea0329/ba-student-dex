@@ -1025,7 +1025,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .nt-root.open { transform: none; }
 .nt-head {
-  position: relative; flex: none; padding: calc(10px + var(--safe-b)) 16px 12px;
+  position: relative; flex: none; padding: calc(8px + var(--safe-t)) 16px 12px;
   display: flex; align-items: center; gap: 12px;
   border-bottom: 1px solid var(--line); background: var(--card);
 }
@@ -1057,3 +1057,5 @@ a { color: var(--accent); text-decoration: none; }
 .nt-body .nt-table { border-collapse: collapse; min-width: 100%; font-size: 12.5px; }
 .nt-body .nt-table td { border: 1px solid var(--line); padding: 6px 9px; vertical-align: top; }
 .nt-body .nt-link { color: var(--accent); text-decoration: underline; }
+
+.nt-src { margin: 18px 0 4px; text-align: center; }

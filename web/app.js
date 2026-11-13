@@ -565,12 +565,15 @@
     return keys.map(function (k) { return ntBlock(inner[k]); }).join('');
   }
 
-  function openNotice(id) {
-    NT.detail = { id: id, loading: true, html: '', title: '', date: '' };
+  function openNotice(id, preset) {
+    const meta = preset || (NT.list || []).filter(function (n) { return String(n.id) === String(id); })[0] || {};
+    NT.detail = {
+      id: id, loading: true, html: '',
+      title: meta.title || '',
+      date: meta.date || (meta.created_at ? fmtDate(meta.created_at) : ''),
+      source: meta.url || ''
+    };
     renderNoticeOverlay();
-    const meta = (NT.list || []).filter(function (n) { return String(n.id) === String(id); })[0] || {};
-    NT.detail.title = meta.title || '';
-    NT.detail.date = meta.created_at ? fmtDate(meta.created_at) : '';
 
     const url = 'https://www.gamekee.com/v1/content/detail/' + id;
     const call = (window.BAFetch && window.BAFetch.available())
@@ -579,8 +582,9 @@
     call.then(function (j) {
       const d = (j && j.data) || {};
       const cdn = d.content_cdn ? ('https:' + d.content_cdn) : '';
-      NT.detail.title = d.title || NT.detail.title;
-      NT.detail.date = d.created_at ? fmtDate(d.created_at) : NT.detail.date;
+      // 保留点进来时的标题（活动名）；只有没传标题时才用正文标题
+      if (!NT.detail.title) NT.detail.title = d.title || '';
+      if (!NT.detail.date && d.created_at) NT.detail.date = fmtDate(d.created_at);
       if (!cdn) return null;
       const getCdn = (window.BAFetch && window.BAFetch.available())
         ? window.BAFetch.text(cdn, { Referer: 'https://www.gamekee.com/' })
@@ -617,7 +621,8 @@
           '<span>' + esc(d.date || '') + '</span></div>' +
       '</div>' +
       '<div class="nt-body">' +
-        (d.loading ? '<div class="empty">正在加载公告内容…</div>' : (d.html || '')) +
+        (d.loading ? '<div class="empty">正在加载内容…</div>' : (d.html || '')) +
+        (d.source ? '<div class="nt-src"><button class="linkbtn" data-act="nt-link" data-url="' + esc(d.source) + '">在浏览器打开原文</button></div>' : '') +
         '<div style="height:30px"></div>' +
       '</div>';
     requestAnimationFrame(function () { root.classList.add('open'); });
@@ -705,10 +710,20 @@
     return html;
   }
 
+  // 从 WIKI 链接里取 content id（形如 /ba/725953.html 或 /ba/725953）
+  function contentIdOf(url) {
+    const m = String(url || '').match(/\/ba\/(\d{3,})/);
+    return m ? m[1] : '';
+  }
+
   function actCard(a, now, dim) {
     const pic = a.picture ? '<img data-murl="' + esc(absUrl(a.picture)) + '" alt="">' : '<span class="noimg"></span>';
     const st = actStatus(a, now);
-    return '<button class="actcard' + (dim ? ' dim' : '') + '" data-act="act-open" data-url="' + esc(absUrl(a.link_url || '')) + '">' +
+    const cid = contentIdOf(a.link_url);
+    const openAttr = cid
+      ? 'data-act="doc-open" data-id="' + cid + '" data-title="' + esc(a.title || '') + '" data-date="' + esc(fmtDate(a.begin_at)) + '" data-url="' + esc(absUrl(a.link_url)) + '"'
+      : 'data-act="act-open" data-url="' + esc(absUrl(a.link_url || '')) + '"';
+    return '<button class="actcard' + (dim ? ' dim' : '') + '" ' + openAttr + '>' +
       '<span class="thumb">' + pic + '</span>' +
       '<span class="body">' +
         '<span class="t">' + esc(a.title) + '</span>' +
@@ -782,7 +797,11 @@
     const tagName = POOL_TAGS[Number(x.tag_id)] || '';
     const st = x.start_at > now ? 2 : (x.end_at < now ? 3 : 1);
     const sub = [x.name_alias, fmtDate(x.start_at) + ' → ' + fmtDate(x.end_at)].filter(Boolean).join(' · ');
-    return '<button class="actcard' + (dim ? ' dim' : '') + '" data-act="pool-open" data-url="' + esc(absUrl(x.link_url || '')) + '">' +
+    const cid = contentIdOf(x.link_url);
+    const openAttr = cid
+      ? 'data-act="doc-open" data-id="' + cid + '" data-title="' + esc(x.name || '') + '" data-date="' + esc(fmtDate(x.start_at)) + '" data-url="' + esc(absUrl(x.link_url)) + '"'
+      : 'data-act="pool-open" data-url="' + esc(absUrl(x.link_url || '')) + '"';
+    return '<button class="actcard' + (dim ? ' dim' : '') + '" ' + openAttr + '>' +
       '<span class="thumb wide">' + pic + '</span>' +
       '<span class="body">' +
         '<span class="t">' + esc(x.name || '') + (tagName ? ' <i class="ptag">' + tagName + '</i>' : '') + '</span>' +
@@ -1968,6 +1987,10 @@
     if (act === 'dt') { stopVoice(); closeMediaViewer(); state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
     if (act === 'nt-open') { openNotice(btn.dataset.id); return; }
+    if (act === 'doc-open') {
+      openNotice(btn.dataset.id, { title: btn.dataset.title, date: btn.dataset.date, url: btn.dataset.url });
+      return;
+    }
     if (act === 'nt-close') { closeNotice(); return; }
     if (act === 'nt-more') { loadNotices(false, (NT.page || 0) + 1).then(function () { render(); }); return; }
     if (act === 'nt-refresh') { loadNotices(true).then(function () { render(); }); toast('正在刷新公告…'); return; }
