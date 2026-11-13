@@ -153,6 +153,7 @@
   }
 
   const ICON = {
+    overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M8 3v3M16 3v3M3.5 9.5h17"/><path d="M7.5 13h3M7.5 16.5h3M13.5 13h3M13.5 16.5h3"/></svg>',
     students: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
     school: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5"/><path d="M5 11v9h14v-9"/><path d="M9.5 20v-5h5v5"/></svg>',
     heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 20s-7.5-4.7-7.5-9.6A4.4 4.4 0 0 1 12 7.4a4.4 4.4 0 0 1 7.5 3c0 4.9-7.5 9.6-7.5 9.6Z"/></svg>',
@@ -270,6 +271,209 @@
 
   function sortLabel() {
     return { date: '日期', name: '名称', rarity: '稀有' }[state.sort];
+  }
+
+  /* ------------------------------------------------------------ 总览（活动） */
+  const ACTIVITY_API = 'https://www.gamekee.com/v1/activity/page-list';
+  const SERVERS = [
+    { id: 15, name: '日服' },
+    { id: 16, name: '国服' },
+    { id: 17, name: '国际服' }
+  ];
+  const KINDS = [
+    [0, '全部'], [14, '活动'], [15, '总力大决'], [16, '多倍活动'],
+    [17, '爬塔'], [19, '战术测试'], [18, '指引任务'], [31, '其他']
+  ];
+  const ACT_CACHE_MS = 10 * 60 * 1000;
+
+  const ACT = {
+    server: 15,
+    kind: 0,
+    data: {},        // serverId -> { list, at }
+    loading: {},
+    failed: {},
+    showEnded: false
+  };
+
+  function actCacheKey(id) { return 'ba.act.' + id; }
+
+  function loadActivities(force) {
+    const id = ACT.server;
+    const hit = ACT.data[id];
+    if (!force && hit && (Date.now() - hit.at) < ACT_CACHE_MS) return Promise.resolve(hit.list);
+    if (ACT.loading[id]) return ACT.loading[id];
+    if (!window.BAFetch || !window.BAFetch.available()) {
+      // 浏览器预览时直接用 fetch（gamekee 允许跨域）
+      ACT.loading[id] = fetch(ACTIVITY_URL(id)).then(function (r) { return r.json(); }).then(function (j) {
+        delete ACT.loading[id];
+        return acceptActivities(id, j);
+      }).catch(function () { delete ACT.loading[id]; ACT.failed[id] = 1; return null; });
+      return ACT.loading[id];
+    }
+    ACT.loading[id] = window.BAFetch.json(ACTIVITY_URL(id), { 'game-alias': 'ba' }).then(function (j) {
+      delete ACT.loading[id];
+      return acceptActivities(id, j);
+    }).catch(function () {
+      delete ACT.loading[id];
+      ACT.failed[id] = 1;
+      return null;
+    });
+    return ACT.loading[id];
+  }
+
+  function ACTIVITY_URL(id) {
+    return ACTIVITY_API + '?importance=0&sort=-1&keyword=&limit=999&page_no=1&serverId=' + id + '&status=0';
+  }
+
+  function acceptActivities(id, j) {
+    const list = (j && j.data) || [];
+    ACT.data[id] = { list: list, at: Date.now() };
+    try {
+      localStorage.setItem(actCacheKey(id), JSON.stringify({ list: list, at: Date.now() }));
+    } catch (e) { /* 忽略配额 */ }
+    ACT.failed[id] = 0;
+    return list;
+  }
+
+  // 冷启动先读本地缓存，避免进页面空白
+  function warmActivities() {
+    SERVERS.forEach(function (sv) {
+      if (ACT.data[sv.id]) return;
+      try {
+        const raw = localStorage.getItem(actCacheKey(sv.id));
+        if (!raw) return;
+        const o = JSON.parse(raw);
+        if (o && o.list) ACT.data[sv.id] = o;
+      } catch (e) { /* ignore */ }
+    });
+  }
+
+  function absUrl(u) {
+    if (!u) return '';
+    return u.indexOf('//') === 0 ? 'https:' + u : u;
+  }
+
+  function fmtDate(ts, withTime) {
+    const d = new Date(ts * 1000);
+    const mm = d.getMonth() + 1;
+    const dd = d.getDate();
+    const t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return mm + '/' + dd + (withTime === false ? '' : ' ' + t);
+  }
+
+  function actStatus(a, now) {
+    if (a.begin_at > now) return 2;       // 未开始
+    if (a.end_at < now) return 3;         // 已结束
+    return 1;                             // 进行中
+  }
+
+  function remainText(a, now) {
+    const diff = a.end_at - now;
+    if (diff <= 0) return '已结束';
+    const d = Math.floor(diff / 86400);
+    const h = Math.floor((diff % 86400) / 3600);
+    if (d >= 1) return '剩 ' + d + ' 天' + (h ? ' ' + h + ' 小时' : '');
+    const m = Math.floor((diff % 3600) / 60);
+    return '剩 ' + h + ' 小时' + (m ? ' ' + m + ' 分' : '');
+  }
+
+  function overviewView() {
+    warmActivities();
+    const id = ACT.server;
+    const data = ACT.data[id];
+    const now = Math.floor(Date.now() / 1000);
+
+    let html = '<div style="height:12px"></div>';
+    // 服务器切换
+    html += '<div class="segwrap"><div class="seg">' + SERVERS.map(function (sv) {
+      return '<button class="' + (sv.id === ACT.server ? 'on' : '') + '" data-act="act-server" data-id="' + sv.id + '">' + sv.name + '</button>';
+    }).join('') + '</div></div>';
+
+    // 类型筛选
+    html += '<div class="chiprow" style="margin-top:10px">' + KINDS.map(function (k) {
+      return '<button class="chip ' + (k[0] === ACT.kind ? 'on' : '') + '" data-act="act-kind" data-k="' + k[0] + '">' + k[1] + '</button>';
+    }).join('') + '</div>';
+
+    if (!data) {
+      loadActivities(false).then(function (list) {
+        if (state.tab === 'overview') rerenderOverview();
+      });
+      html += '<div class="empty">正在获取活动数据…</div>';
+      return html;
+    }
+
+    let list = data.list.slice();
+    if (ACT.kind) list = list.filter(function (a) { return a.activity_kind_id === ACT.kind; });
+    list.sort(function (a, b) { return a.begin_at - b.begin_at; });
+
+    const ongoing = list.filter(function (a) { return actStatus(a, now) === 1; });
+    const soon = list.filter(function (a) { return actStatus(a, now) === 2; });
+    const ended = list.filter(function (a) { return actStatus(a, now) === 3; })
+      .sort(function (a, b) { return b.end_at - a.end_at; });
+    const recentEnded = ended.filter(function (a) { return a.end_at > now - 14 * 86400; });
+
+    function card(a, dim) {
+      const pic = a.picture ? '<img data-murl="' + esc(absUrl(a.picture)) + '" alt="">' : '<span class="noimg"></span>';
+      const st = actStatus(a, now);
+      return '<button class="actcard' + (dim ? ' dim' : '') + '" data-act="act-open" data-url="' + esc(absUrl(a.link_url || '')) + '">' +
+        '<span class="thumb">' + pic + '</span>' +
+        '<span class="body">' +
+          '<span class="t">' + esc(a.title) + '</span>' +
+          '<span class="m">' + esc(a.activity_kind_name || '') + ' · ' + fmtDate(a.begin_at) + ' → ' + fmtDate(a.end_at) + '</span>' +
+          '<span class="s ' + (st === 1 ? 'live' : (st === 2 ? 'soon' : 'done')) + '">' +
+            (st === 1 ? remainText(a, now) : (st === 2 ? '未开始' : '已结束')) +
+          '</span>' +
+        '</span>' +
+      '</button>';
+    }
+
+    html += '<div class="actgroup">';
+    if (ongoing.length) {
+      html += secTitle('进行中 · ' + ongoing.length);
+      html += ongoing.map(function (a) { return card(a, false); }).join('');
+    }
+    if (soon.length) {
+      html += secTitle('即将开始 · ' + soon.length);
+      html += soon.map(function (a) { return card(a, false); }).join('');
+    }
+    if (recentEnded.length) {
+      html += secTitle('最近结束 · ' + recentEnded.length);
+      html += recentEnded.slice(0, ACT.showEnded ? 40 : 6).map(function (a) { return card(a, true); }).join('');
+      if (recentEnded.length > 6) {
+        html += '<button class="morebtn" data-act="act-more">' + (ACT.showEnded ? '收起' : '查看全部 ' + recentEnded.length + ' 条') + '</button>';
+      }
+    }
+    if (!ongoing.length && !soon.length && !recentEnded.length) {
+      html += '<div class="empty">当前没有活动</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="actfoot">数据来自 GameKee 活动日历 · ' + fmtDate(Math.floor(data.at / 1000)) +
+      ' 更新 <button class="linkbtn" data-act="act-refresh">刷新</button></div>';
+
+    // 卡片图片走原生桥
+    setTimeout(hydrateActivityImages, 0);
+    return html;
+  }
+
+  function rerenderOverview() {
+    renderTop();
+    view.innerHTML = overviewView();
+  }
+
+  // 活动封面是远程 webp（CDN 校验 Referer），走原生桥取回后显示
+  function hydrateActivityImages() {
+    const imgs = Array.prototype.slice.call(view.querySelectorAll('img[data-murl]'));
+    imgs.forEach(function (img) {
+      const url = img.getAttribute('data-murl');
+      img.removeAttribute('data-murl');
+      if (!url) return;
+      mediaBlobUrl(absUrl(url)).then(function (blob) {
+        img.src = blob;
+      }).catch(function () {
+        img.style.opacity = '.25';
+      });
+    });
   }
 
   function listView() {
@@ -1149,9 +1353,18 @@
   }
 
   function renderTop() {
-    const titles = { students: ['STUDENT DEX', '学生图鉴'], schools: ['ACADEMY', '学院'], favorites: ['FAVORITES', '收藏'], more: ['ABOUT', '更多'] };
+    const titles = { overview: ['DASHBOARD', '总览'], students: ['STUDENT DEX', '学生图鉴'], schools: ['ACADEMY', '学院'], favorites: ['FAVORITES', '收藏'], more: ['ABOUT', '更多'] };
     const t = titles[state.tab];
-    const count = state.tab === 'students' ? (filtered().length + ' / ' + INDEX.length) : '';
+    let count = '';
+    if (state.tab === 'students') count = filtered().length + ' / ' + INDEX.length;
+    else if (state.tab === 'overview') {
+      const d = ACT.data[ACT.server];
+      if (d) {
+        const now = Math.floor(Date.now() / 1000);
+        const live = d.list.filter(function (a) { return a.begin_at <= now && a.end_at >= now; }).length;
+        count = '进行中 ' + live;
+      }
+    }
     topbar.innerHTML =
       '<div class="topbar-title"><h1><small>' + t[0] + '</small>' + t[1] + '</h1>' +
       '<div class="count">' + count + '</div></div>' +
@@ -1175,7 +1388,8 @@
     } else {
       renderTop();
       let html = '';
-      if (state.tab === 'students') html = listView();
+      if (state.tab === 'overview') html = overviewView();
+      else if (state.tab === 'students') html = listView();
       else if (state.tab === 'schools') html = schoolsView();
       else if (state.tab === 'favorites') html = favView();
       else html = moreView();
@@ -1412,6 +1626,11 @@
     }
     if (act === 'dt') { stopVoice(); closeMediaViewer(); state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
+    if (act === 'act-server') { ACT.server = Number(btn.dataset.id); ACT.showEnded = false; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'act-kind') { ACT.kind = Number(btn.dataset.k); if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'act-more') { ACT.showEnded = !ACT.showEnded; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'act-refresh') { loadActivities(true).then(function () { if (state.tab === 'overview') rerenderOverview(); }); toast('正在刷新活动…'); return; }
+    if (act === 'act-open') { const u = btn.dataset.url; if (u) openExternal(u); return; }
     if (act === 'vcat') { stopVoice(); state.voiceCat = btn.dataset.c; rerenderBody(); return; }
     if (act === 'vtrans') { state.voiceTrans = btn.dataset.m; rerenderBody(); return; }
     if (act === 'vplay') { playVoice(btn); return; }
@@ -1757,6 +1976,7 @@
   }
 
   tabbar.innerHTML = [
+    ['overview', '总览', ICON.overview],
     ['students', '学生', ICON.students],
     ['schools', '学院', ICON.school],
     ['favorites', '收藏', ICON.heart],
