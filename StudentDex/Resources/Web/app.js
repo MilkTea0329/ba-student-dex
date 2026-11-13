@@ -50,7 +50,8 @@
     voiceAudio: undefined,    // undefined=未请求; null=加载中; {}=无音频
     voiceAudioFor: null,      // 当前 audio 属于哪个学生
     voiceAudioLoading: {},    // id -> 1（避免重复请求）
-    mediaCat: null,           // 影画鉴赏当前分类
+    mediaCat: null,
+    overviewMode: 'activity',   // 总览：活动 / 卡池           // 影画鉴赏当前分类
     netToast: 0,
     sheetOpen: false,
     draft: null,
@@ -286,6 +287,17 @@
   ];
   const ACT_CACHE_MS = 10 * 60 * 1000;
 
+  const POOL_API = 'https://www.gamekee.com/v1/cardPool/query-list';
+  const POOL_TAGS = { 6: '限定', 7: 'FES', 8: '联动', 9: '复刻', 92: '回忆', 112: '安可' };
+
+  const POOL = {
+    data: {},
+    loading: {},
+    failed: {},
+    tag: 0,
+    showEnded: false
+  };
+
   const ACT = {
     server: 15,
     kind: 0,
@@ -353,6 +365,52 @@
     return u.indexOf('//') === 0 ? 'https:' + u : u;
   }
 
+  function poolCacheKey(id) { return 'ba.pool.' + id; }
+
+  function warmPools() {
+    SERVERS.forEach(function (sv) {
+      if (POOL.data[sv.id]) return;
+      try {
+        const raw = localStorage.getItem(poolCacheKey(sv.id));
+        if (!raw) return;
+        const o = JSON.parse(raw);
+        if (o && o.list) POOL.data[sv.id] = o;
+      } catch (e) { /* ignore */ }
+    });
+  }
+
+  function POOL_URL(id) {
+    return POOL_API + '?order_by=-1&card_tag_id=&keyword=&kind_id=6&status=0&serverId=' + id;
+  }
+
+  function acceptPools(id, j) {
+    const list = (j && j.data) || [];
+    POOL.data[id] = { list: list, at: Date.now() };
+    try { localStorage.setItem(poolCacheKey(id), JSON.stringify({ list: list, at: Date.now() })); } catch (e) {}
+    POOL.failed[id] = 0;
+    return list;
+  }
+
+  function loadPools(force) {
+    const id = ACT.server;
+    const hit = POOL.data[id];
+    if (!force && hit && (Date.now() - hit.at) < ACT_CACHE_MS) return Promise.resolve(hit.list);
+    if (POOL.loading[id]) return POOL.loading[id];
+    const url = POOL_URL(id);
+    if (!window.BAFetch || !window.BAFetch.available()) {
+      POOL.loading[id] = fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+        delete POOL.loading[id];
+        return acceptPools(id, j);
+      }).catch(function () { delete POOL.loading[id]; POOL.failed[id] = 1; return null; });
+      return POOL.loading[id];
+    }
+    POOL.loading[id] = window.BAFetch.json(url, { 'game-alias': 'ba' }).then(function (j) {
+      delete POOL.loading[id];
+      return acceptPools(id, j);
+    }).catch(function () { delete POOL.loading[id]; POOL.failed[id] = 1; return null; });
+    return POOL.loading[id];
+  }
+
   function fmtDate(ts, withTime) {
     const d = new Date(ts * 1000);
     const mm = d.getMonth() + 1;
@@ -379,24 +437,37 @@
 
   function overviewView() {
     warmActivities();
-    const id = ACT.server;
-    const data = ACT.data[id];
+    warmPools();
     const now = Math.floor(Date.now() / 1000);
 
     let html = '<div style="height:12px"></div>';
-    // 服务器切换
+    // 服务器切换（活动与卡池共用）
     html += '<div class="segwrap"><div class="seg">' + SERVERS.map(function (sv) {
       return '<button class="' + (sv.id === ACT.server ? 'on' : '') + '" data-act="act-server" data-id="' + sv.id + '">' + sv.name + '</button>';
     }).join('') + '</div></div>';
 
-    // 类型筛选
-    html += '<div class="chiprow" style="margin-top:10px">' + KINDS.map(function (k) {
+    // 活动 / 卡池
+    html += '<div class="segwrap" style="margin-top:10px"><div class="seg">' +
+      '<button class="' + (state.overviewMode !== 'pool' ? 'on' : '') + '" data-act="ov-mode" data-m="activity">活动</button>' +
+      '<button class="' + (state.overviewMode === 'pool' ? 'on' : '') + '" data-act="ov-mode" data-m="pool">卡池</button>' +
+      '</div></div>';
+
+    html += (state.overviewMode === 'pool') ? poolSection(now) : activitySection(now);
+    return html;
+  }
+
+  /* ---------------------------------------------------------- 活动区块 */
+  function activitySection(now) {
+    const id = ACT.server;
+    const data = ACT.data[id];
+
+    let html = '<div class="chiprow" style="margin-top:10px">' + KINDS.map(function (k) {
       return '<button class="chip ' + (k[0] === ACT.kind ? 'on' : '') + '" data-act="act-kind" data-k="' + k[0] + '">' + k[1] + '</button>';
     }).join('') + '</div>';
 
     if (!data) {
-      loadActivities(false).then(function (list) {
-        if (state.tab === 'overview') rerenderOverview();
+      loadActivities(false).then(function () {
+        if (state.tab === 'overview' && state.overviewMode !== 'pool') rerenderOverview();
       });
       html += '<div class="empty">正在获取活动数据…</div>';
       return html;
@@ -412,48 +483,118 @@
       .sort(function (a, b) { return b.end_at - a.end_at; });
     const recentEnded = ended.filter(function (a) { return a.end_at > now - 14 * 86400; });
 
-    function card(a, dim) {
-      const pic = a.picture ? '<img data-murl="' + esc(absUrl(a.picture)) + '" alt="">' : '<span class="noimg"></span>';
-      const st = actStatus(a, now);
-      return '<button class="actcard' + (dim ? ' dim' : '') + '" data-act="act-open" data-url="' + esc(absUrl(a.link_url || '')) + '">' +
-        '<span class="thumb">' + pic + '</span>' +
-        '<span class="body">' +
-          '<span class="t">' + esc(a.title) + '</span>' +
-          '<span class="m">' + esc(a.activity_kind_name || '') + ' · ' + fmtDate(a.begin_at) + ' → ' + fmtDate(a.end_at) + '</span>' +
-          '<span class="s ' + (st === 1 ? 'live' : (st === 2 ? 'soon' : 'done')) + '">' +
-            (st === 1 ? remainText(a, now) : (st === 2 ? '未开始' : '已结束')) +
-          '</span>' +
-        '</span>' +
-      '</button>';
-    }
-
     html += '<div class="actgroup">';
     if (ongoing.length) {
       html += secTitle('进行中 · ' + ongoing.length);
-      html += ongoing.map(function (a) { return card(a, false); }).join('');
+      html += ongoing.map(function (a) { return actCard(a, now, false); }).join('');
     }
     if (soon.length) {
       html += secTitle('即将开始 · ' + soon.length);
-      html += soon.map(function (a) { return card(a, false); }).join('');
+      html += soon.map(function (a) { return actCard(a, now, false); }).join('');
     }
     if (recentEnded.length) {
       html += secTitle('最近结束 · ' + recentEnded.length);
-      html += recentEnded.slice(0, ACT.showEnded ? 40 : 6).map(function (a) { return card(a, true); }).join('');
+      html += recentEnded.slice(0, ACT.showEnded ? 40 : 6).map(function (a) { return actCard(a, now, true); }).join('');
       if (recentEnded.length > 6) {
         html += '<button class="morebtn" data-act="act-more">' + (ACT.showEnded ? '收起' : '查看全部 ' + recentEnded.length + ' 条') + '</button>';
       }
     }
-    if (!ongoing.length && !soon.length && !recentEnded.length) {
-      html += '<div class="empty">当前没有活动</div>';
-    }
+    if (!ongoing.length && !soon.length && !recentEnded.length) html += '<div class="empty">当前没有活动</div>';
     html += '</div>';
-
     html += '<div class="actfoot">数据来自 GameKee 活动日历 · ' + fmtDate(Math.floor(data.at / 1000)) +
       ' 更新 <button class="linkbtn" data-act="act-refresh">刷新</button></div>';
 
-    // 卡片图片走原生桥
     setTimeout(hydrateActivityImages, 0);
     return html;
+  }
+
+  function actCard(a, now, dim) {
+    const pic = a.picture ? '<img data-murl="' + esc(absUrl(a.picture)) + '" alt="">' : '<span class="noimg"></span>';
+    const st = actStatus(a, now);
+    return '<button class="actcard' + (dim ? ' dim' : '') + '" data-act="act-open" data-url="' + esc(absUrl(a.link_url || '')) + '">' +
+      '<span class="thumb">' + pic + '</span>' +
+      '<span class="body">' +
+        '<span class="t">' + esc(a.title) + '</span>' +
+        '<span class="m">' + esc(a.activity_kind_name || '') + ' · ' + fmtDate(a.begin_at) + ' → ' + fmtDate(a.end_at) + '</span>' +
+        '<span class="s ' + (st === 1 ? 'live' : (st === 2 ? 'soon' : 'done')) + '">' +
+          (st === 1 ? remainText(a, now) : (st === 2 ? '未开始' : '已结束')) +
+        '</span>' +
+      '</span>' +
+    '</button>';
+  }
+
+  /* ---------------------------------------------------------- 卡池区块 */
+  function poolSection(now) {
+    const id = ACT.server;
+    const data = POOL.data[id];
+
+    let html = '';
+    html += '<div class="chiprow" style="margin-top:10px">' +
+      '<button class="chip ' + (POOL.tag === 0 ? 'on' : '') + '" data-act="pool-tag" data-k="0">全部</button>' +
+      Object.keys(POOL_TAGS).map(function (k) {
+        return '<button class="chip ' + (POOL.tag === Number(k) ? 'on' : '') + '" data-act="pool-tag" data-k="' + k + '">' + POOL_TAGS[k] + '</button>';
+      }).join('') + '</div>';
+
+    if (!data) {
+      loadPools(false).then(function () {
+        if (state.tab === 'overview' && state.overviewMode === 'pool') rerenderOverview();
+      });
+      html += '<div class="empty">正在获取卡池数据…</div>';
+      return html;
+    }
+
+    let list = data.list.slice();
+    if (POOL.tag) list = list.filter(function (x) { return Number(x.tag_id) === POOL.tag; });
+    list.sort(function (a, b) { return a.start_at - b.start_at; });
+
+    const live = list.filter(function (x) { return x.start_at <= now && x.end_at >= now; });
+    const soon = list.filter(function (x) { return x.start_at > now; });
+    const ended = list.filter(function (x) { return x.end_at < now; })
+      .sort(function (a, b) { return b.end_at - a.end_at; });
+    const recent = ended.filter(function (x) { return x.end_at > now - 14 * 86400; });
+
+    html += '<div class="actgroup">';
+    if (live.length) {
+      html += secTitle('进行中 · ' + live.length);
+      html += live.map(function (x) { return poolCard(x, now, false); }).join('');
+    }
+    if (soon.length) {
+      html += secTitle('即将开始 · ' + soon.length);
+      html += soon.map(function (x) { return poolCard(x, now, false); }).join('');
+    }
+    if (recent.length) {
+      html += secTitle('最近结束 · ' + recent.length);
+      html += recent.slice(0, POOL.showEnded ? 40 : 6).map(function (x) { return poolCard(x, now, true); }).join('');
+      if (recent.length > 6) {
+        html += '<button class="morebtn" data-act="pool-more">' + (POOL.showEnded ? '收起' : '查看全部 ' + recent.length + ' 个') + '</button>';
+      }
+    }
+    if (!live.length && !soon.length && !recent.length) html += '<div class="empty">当前没有卡池</div>';
+    html += '</div>';
+
+    html += '<div class="actfoot">数据来自 GameKee 卡池日历 · ' + fmtDate(Math.floor(data.at / 1000)) +
+      ' 更新 <button class="linkbtn" data-act="pool-refresh">刷新</button></div>';
+
+    setTimeout(hydrateActivityImages, 0);
+    return html;
+  }
+
+  function poolCard(x, now, dim) {
+    const img = absUrl(x.image_list || x.icon || '');
+    const pic = img ? '<img data-murl="' + esc(img) + '" alt="">' : '<span class="noimg"></span>';
+    const tagName = POOL_TAGS[Number(x.tag_id)] || '';
+    const st = x.start_at > now ? 2 : (x.end_at < now ? 3 : 1);
+    const sub = [x.name_alias, fmtDate(x.start_at) + ' → ' + fmtDate(x.end_at)].filter(Boolean).join(' · ');
+    return '<button class="actcard' + (dim ? ' dim' : '') + '" data-act="pool-open" data-url="' + esc(absUrl(x.link_url || '')) + '">' +
+      '<span class="thumb wide">' + pic + '</span>' +
+      '<span class="body">' +
+        '<span class="t">' + esc(x.name || '') + (tagName ? ' <i class="ptag">' + tagName + '</i>' : '') + '</span>' +
+        '<span class="m">' + esc(sub) + '</span>' +
+        '<span class="s ' + (st === 1 ? 'live' : (st === 2 ? 'soon' : 'done')) + '">' +
+          (st === 1 ? remainText(x, now) : (st === 2 ? '未开始' : '已结束')) +
+        '</span>' +
+      '</span>' +
+    '</button>';
   }
 
   function rerenderOverview() {
@@ -1358,11 +1499,13 @@
     let count = '';
     if (state.tab === 'students') count = filtered().length + ' / ' + INDEX.length;
     else if (state.tab === 'overview') {
-      const d = ACT.data[ACT.server];
-      if (d) {
-        const now = Math.floor(Date.now() / 1000);
-        const live = d.list.filter(function (a) { return a.begin_at <= now && a.end_at >= now; }).length;
-        count = '进行中 ' + live;
+      const now = Math.floor(Date.now() / 1000);
+      if (state.overviewMode === 'pool') {
+        const pd = POOL.data[ACT.server];
+        if (pd) count = '卡池进行中 ' + pd.list.filter(function (x) { return x.start_at <= now && x.end_at >= now; }).length;
+      } else {
+        const d = ACT.data[ACT.server];
+        if (d) count = '进行中 ' + d.list.filter(function (a) { return a.begin_at <= now && a.end_at >= now; }).length;
       }
     }
     topbar.innerHTML =
@@ -1626,7 +1769,18 @@
     }
     if (act === 'dt') { stopVoice(); closeMediaViewer(); state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
-    if (act === 'act-server') { ACT.server = Number(btn.dataset.id); ACT.showEnded = false; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'ov-mode') { state.overviewMode = btn.dataset.m === 'pool' ? 'pool' : 'activity'; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'pool-tag') { POOL.tag = Number(btn.dataset.k) || 0; POOL.showEnded = false; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'pool-more') { POOL.showEnded = !POOL.showEnded; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'pool-refresh') { loadPools(true).then(function () { if (state.tab === 'overview') rerenderOverview(); }); toast('正在刷新卡池…'); return; }
+    if (act === 'pool-open') { const u = btn.dataset.url; if (u) openExternal(u); return; }
+    if (act === 'act-server') {
+      ACT.server = Number(btn.dataset.id);
+      ACT.showEnded = false;
+      POOL.showEnded = false;
+      if (state.tab === 'overview') rerenderOverview();
+      return;
+    }
     if (act === 'act-kind') { ACT.kind = Number(btn.dataset.k); if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'act-more') { ACT.showEnded = !ACT.showEnded; if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'act-refresh') { loadActivities(true).then(function () { if (state.tab === 'overview') rerenderOverview(); }); toast('正在刷新活动…'); return; }
