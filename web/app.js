@@ -178,6 +178,7 @@
   let FACETS = null;
 
   function buildFacets() {
+    NAME_IDX = null;   // 学生集合变了，重建名字索引
     FACETS = {
       rarity: { label: '稀有度', values: [3, 2, 1], fmt: function (v) { return v + '★'; } },
       school: { label: '学院', values: uniq(INDEX.map(function (s) { return s.school; })) },
@@ -296,7 +297,8 @@
     loading: {},
     failed: {},
     tag: 0,
-    showEnded: false
+    showEnded: false,
+    allHistory: false
   };
 
   const ACT = {
@@ -410,6 +412,12 @@
       return acceptPools(id, j);
     }).catch(function () { delete POOL.loading[id]; POOL.failed[id] = 1; return null; });
     return POOL.loading[id];
+  }
+
+  function poolTags(x) {
+    return String((x && x.tag_id) || '').split(',')
+      .map(function (v) { return Number(String(v).trim()); })
+      .filter(function (v) { return v > 0; });
   }
 
   function fmtDate(ts, withTime) {
@@ -683,7 +691,7 @@
     const soon = list.filter(function (a) { return actStatus(a, now) === 2; });
     const ended = list.filter(function (a) { return actStatus(a, now) === 3; })
       .sort(function (a, b) { return b.end_at - a.end_at; });
-    const actWindow = (ACT.kind ? 120 : 14) * 86400;
+    const actWindow = (ACT.kind || ACT.allHistory ? 3650 : 14) * 86400;
     const recentEnded = ended.filter(function (a) { return a.end_at > now - actWindow; });
 
     html += '<div class="actgroup">';
@@ -697,9 +705,10 @@
     }
     if (recentEnded.length) {
       html += secTitle('最近结束 · ' + recentEnded.length);
-      html += recentEnded.slice(0, ACT.showEnded ? 40 : 6).map(function (a) { return actCard(a, now, true); }).join('');
-      if (recentEnded.length > 6) {
-        html += '<button class="morebtn" data-act="act-more">' + (ACT.showEnded ? '收起' : '查看全部 ' + recentEnded.length + ' 条') + '</button>';
+      const actShow = (ACT.allHistory || ACT.kind) ? 60 : 6;
+      html += recentEnded.slice(0, actShow).map(function (a) { return actCard(a, now, true); }).join('');
+      if (ended.length > actShow) {
+        html += '<button class="morebtn" data-act="act-more">' + (ACT.allHistory ? '收起' : '查看更早的记录') + '</button>';
       }
     }
     if (!ongoing.length && !soon.length && !recentEnded.length) html += '<div class="empty">当前没有活动</div>';
@@ -709,6 +718,122 @@
 
     setTimeout(hydrateRemoteImages, 0);
     return html;
+  }
+
+  // 卡池名字 -> 学生（支持 繁中译名 / 别名 / 括号变体）
+  var NAME_IDX = null;   // 用 var：buildFacets 在声明之前就会被调用
+
+  // 常见 繁→简（学生名里出现过的那批字，只做无害映射）
+  var T2S = {
+    '繪': '绘', '綺': '绮', '羅': '罗', '皐': '皋', '導': '导', '覽': '览', '員': '员',
+    '響': '响', '種': '种', '優': '优', '愛': '爱', '學': '学', '園': '园', '體': '体',
+    '憐': '怜', '凜': '凛', '紗': '纱', '綾': '绫', '亞': '亚', '澤': '泽', '瀨': '濑',
+    '櫻': '樱', '織': '织', '純': '纯', '葉': '叶', '溫': '温', '禮': '礼', '樂': '乐',
+    '宮': '宫', '島': '岛', '貝': '贝', '陸': '陆', '霧': '雾', '華': '华', '龍': '龙',
+    '鳳': '凤', '靜': '静', '鏡': '镜', '緒': '绪', '綴': '缀', '織': '织', '紋': '纹'
+  };
+
+  function normName(v) {
+    var t = String(v || '');
+    t = t.replace(/[（(\[【]/g, '(').replace(/[）)\]】]/g, ')').replace(/\*/g, '(');
+    t = t.replace(/[·・．.\s\u3000]/g, '');
+    t = t.split('').map(function (ch) { return T2S[ch] || ch; }).join('');
+    return t.replace(/[!！]/g, '').toLowerCase();
+  }
+
+  // 去掉所有括号后的「纯名字」，用于 *恐怖 vs （恐怖）这类写法差异
+  function flatName(v) {
+    return normName(v).replace(/[()]/g, '');
+  }
+
+  function nameIndex() {
+    if (NAME_IDX) return NAME_IDX;
+    const map = {};
+    INDEX.forEach(function (s) {
+      const full = STUDENTS[s.id] || {};
+      const p = full.profile || {};
+      const names = [s.name].concat(s.aliases || [], [p.twName, p.cnName]);
+      names.forEach(function (n) {
+        const k = normName(n);
+        if (k && !map[k]) map[k] = s.id;
+        const f = flatName(n);
+        if (f && !map[f]) map[f] = s.id;
+      });
+    });
+    NAME_IDX = map;
+    return map;
+  }
+
+  // 返回 { id } / { candidates:[id] } / null
+  function resolveStudent(poolName) {
+    const idx = nameIndex();
+    const k = normName(poolName);
+    if (idx[k]) return { id: idx[k] };
+    const f = flatName(poolName);
+    if (idx[f]) return { id: idx[f] };
+
+    const m = k.match(/^(.*?)\((.*)\)$/);
+    if (m) {
+      const base = m[1];
+      const suf = m[2];
+      const cands = INDEX.filter(function (s) {
+        const n = normName(s.name);
+        return n.indexOf(base + '(') === 0 && n.indexOf(suf) >= 0;
+      });
+      if (cands.length === 1) return { id: cands[0].id };
+      if (cands.length > 1) return { candidates: cands.map(function (c) { return c.id; }) };
+    }
+
+    return null;
+  }
+
+  function openPoolStudent(pool, contentId, url) {
+    const r = resolveStudent(pool.name);
+    if (r && r.id) {
+      openDetail(String(r.id));
+      return true;
+    }
+    if (r && r.candidates && r.candidates.length > 1) {
+      showStudentPicker(r.candidates);
+      return true;
+    }
+    // 没收录（可能是刚出的新学生）：先看卡池公告，同时后台同步一次
+    if (contentId) {
+      openNotice(contentId, { title: pool.name_alias || pool.name || '', date: fmtDate(pool.start_at), url: url });
+    } else if (url) {
+      openExternal(url);
+    }
+    toast('学生资料尚未收录，正在同步…');
+    if (window.BASync && window.BASync.available()) {
+      window.BASync.check(syncOpts({ force: true })).then(afterSync);
+    }
+    return false;
+  }
+
+  function showStudentPicker(ids) {
+    closeStudentPicker();
+    const root = document.createElement('div');
+    root.id = 'pick-modal';
+    root.className = 'modal-root';
+    root.innerHTML =
+      '<div class="modal-backdrop" data-act="pick-close"></div>' +
+      '<div class="modal" role="dialog">' +
+        '<div class="modal-head"><h3>选择学生</h3><div class="modal-sub">卡池里有多个同名形态</div></div>' +
+        '<div class="modal-body" style="padding-bottom:12px">' +
+          ids.map(function (id) {
+            const s = BY_ID[id] || {};
+            return '<button class="rowlink" data-act="pick-item" data-id="' + id + '" style="width:100%;text-align:left">' +
+              '<span>' + esc(s.name || id) + '</span><span class="r">›</span></button>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(root);
+    requestAnimationFrame(function () { root.classList.add('open'); });
+  }
+
+  function closeStudentPicker() {
+    const root = document.getElementById('pick-modal');
+    if (root && root.parentNode) root.parentNode.removeChild(root);
   }
 
   // 从 WIKI 链接里取 content id（形如 /ba/725953.html 或 /ba/725953）
@@ -757,14 +882,14 @@
     }
 
     let list = data.list.slice();
-    if (POOL.tag) list = list.filter(function (x) { return Number(x.tag_id) === POOL.tag; });
+    if (POOL.tag) list = list.filter(function (x) { return poolTags(x).indexOf(POOL.tag) >= 0; });
     list.sort(function (a, b) { return a.start_at - b.start_at; });
 
     const live = list.filter(function (x) { return x.start_at <= now && x.end_at >= now; });
     const soon = list.filter(function (x) { return x.start_at > now; });
     const ended = list.filter(function (x) { return x.end_at < now; })
       .sort(function (a, b) { return b.end_at - a.end_at; });
-    const poolWindow = (POOL.tag ? 180 : 14) * 86400;
+    const poolWindow = (POOL.tag || POOL.allHistory ? 3650 : 14) * 86400;
     const recent = ended.filter(function (x) { return x.end_at > now - poolWindow; });
 
     html += '<div class="actgroup">';
@@ -778,9 +903,10 @@
     }
     if (recent.length) {
       html += secTitle('最近结束 · ' + recent.length);
-      html += recent.slice(0, POOL.showEnded ? 40 : 6).map(function (x) { return poolCard(x, now, true); }).join('');
-      if (recent.length > 6) {
-        html += '<button class="morebtn" data-act="pool-more">' + (POOL.showEnded ? '收起' : '查看全部 ' + recent.length + ' 个') + '</button>';
+      const poolShow = (POOL.allHistory || POOL.tag) ? 60 : 6;
+      html += recent.slice(0, poolShow).map(function (x) { return poolCard(x, now, true); }).join('');
+      if (ended.length > poolShow) {
+        html += '<button class="morebtn" data-act="pool-more">' + (POOL.allHistory ? '收起' : '查看更早的记录') + '</button>';
       }
     }
     if (!live.length && !soon.length && !recent.length) html += '<div class="empty">当前没有卡池</div>';
@@ -796,13 +922,14 @@
   function poolCard(x, now, dim) {
     const img = absUrl(x.image_list || x.icon || '');
     const pic = img ? '<img data-murl="' + esc(img) + '" alt="">' : '<span class="noimg"></span>';
-    const tagName = POOL_TAGS[Number(x.tag_id)] || '';
+    const tags = poolTags(x).map(function (t) { return POOL_TAGS[t]; }).filter(Boolean);
+    const tagName = tags[0] || '';
     const st = x.start_at > now ? 2 : (x.end_at < now ? 3 : 1);
     const sub = [x.name_alias, fmtDate(x.start_at) + ' → ' + fmtDate(x.end_at)].filter(Boolean).join(' · ');
     const cid = contentIdOf(x.link_url);
-    const openAttr = cid
-      ? 'data-act="doc-open" data-id="' + cid + '" data-title="' + esc(x.name || '') + '" data-date="' + esc(fmtDate(x.start_at)) + '" data-url="' + esc(absUrl(x.link_url)) + '"'
-      : 'data-act="pool-open" data-url="' + esc(absUrl(x.link_url || '')) + '"';
+    const openAttr = 'data-act="pool-student" data-pid="' + esc(x.id) + '" data-cid="' + esc(cid) + '"' +
+      ' data-name="' + esc(x.name || '') + '" data-alias="' + esc(x.name_alias || '') + '"' +
+      ' data-start="' + esc(String(x.start_at)) + '" data-url="' + esc(absUrl(x.link_url || '')) + '"';
     return '<button class="actcard' + (dim ? ' dim' : '') + '" ' + openAttr + '>' +
       '<span class="thumb wide">' + pic + '</span>' +
       '<span class="body">' +
@@ -1988,6 +2115,18 @@
     }
     if (act === 'dt') { stopVoice(); closeMediaViewer(); state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
+    if (act === 'pool-student') {
+      const pool = {
+        id: btn.dataset.pid,
+        name: btn.dataset.name,
+        name_alias: btn.dataset.alias,
+        start_at: Number(btn.dataset.start) || 0
+      };
+      openPoolStudent(pool, btn.dataset.cid, btn.dataset.url);
+      return;
+    }
+    if (act === 'pick-close') { closeStudentPicker(); return; }
+    if (act === 'pick-item') { closeStudentPicker(); openDetail(String(btn.dataset.id)); return; }
     if (act === 'nt-open') { openNotice(btn.dataset.id); return; }
     if (act === 'doc-open') {
       openNotice(btn.dataset.id, { title: btn.dataset.title, date: btn.dataset.date, url: btn.dataset.url });
@@ -1999,7 +2138,7 @@
     if (act === 'nt-link') { const u = btn.dataset.url; if (u) openExternal(u); return; }
     if (act === 'ov-mode') { state.overviewMode = btn.dataset.m === 'pool' ? 'pool' : 'activity'; if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'pool-tag') { POOL.tag = Number(btn.dataset.k) || 0; POOL.showEnded = false; if (state.tab === 'overview') rerenderOverview(); return; }
-    if (act === 'pool-more') { POOL.showEnded = !POOL.showEnded; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'pool-more') { POOL.allHistory = !POOL.allHistory; if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'pool-refresh') { loadPools(true).then(function () { if (state.tab === 'overview') rerenderOverview(); }); toast('正在刷新卡池…'); return; }
     if (act === 'pool-open') { const u = btn.dataset.url; if (u) openExternal(u); return; }
     if (act === 'act-server') {
@@ -2010,7 +2149,7 @@
       return;
     }
     if (act === 'act-kind') { ACT.kind = Number(btn.dataset.k); if (state.tab === 'overview') rerenderOverview(); return; }
-    if (act === 'act-more') { ACT.showEnded = !ACT.showEnded; if (state.tab === 'overview') rerenderOverview(); return; }
+    if (act === 'act-more') { ACT.allHistory = !ACT.allHistory; if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'act-refresh') { loadActivities(true).then(function () { if (state.tab === 'overview') rerenderOverview(); }); toast('正在刷新活动…'); return; }
     if (act === 'act-open') { const u = btn.dataset.url; if (u) openExternal(u); return; }
     if (act === 'vcat') { stopVoice(); state.voiceCat = btn.dataset.c; rerenderBody(); return; }
