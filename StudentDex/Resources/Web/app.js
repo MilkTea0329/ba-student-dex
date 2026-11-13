@@ -683,7 +683,8 @@
     const soon = list.filter(function (a) { return actStatus(a, now) === 2; });
     const ended = list.filter(function (a) { return actStatus(a, now) === 3; })
       .sort(function (a, b) { return b.end_at - a.end_at; });
-    const recentEnded = ended.filter(function (a) { return a.end_at > now - 14 * 86400; });
+    const actWindow = (ACT.kind ? 120 : 14) * 86400;
+    const recentEnded = ended.filter(function (a) { return a.end_at > now - actWindow; });
 
     html += '<div class="actgroup">';
     if (ongoing.length) {
@@ -763,7 +764,8 @@
     const soon = list.filter(function (x) { return x.start_at > now; });
     const ended = list.filter(function (x) { return x.end_at < now; })
       .sort(function (a, b) { return b.end_at - a.end_at; });
-    const recent = ended.filter(function (x) { return x.end_at > now - 14 * 86400; });
+    const poolWindow = (POOL.tag ? 180 : 14) * 86400;
+    const recent = ended.filter(function (x) { return x.end_at > now - poolWindow; });
 
     html += '<div class="actgroup">';
     if (live.length) {
