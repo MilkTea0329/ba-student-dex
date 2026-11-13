@@ -154,6 +154,7 @@
   }
 
   const ICON = {
+    notice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V5A1.5 1.5 0 0 1 6.5 3.5z"/><path d="M15 3.5V8h4.5"/><path d="M8.5 12h7M8.5 15.5h7M8.5 8.5h3"/></svg>',
     overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M8 3v3M16 3v3M3.5 9.5h17"/><path d="M7.5 13h3M7.5 16.5h3M13.5 13h3M13.5 16.5h3"/></svg>',
     students: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
     school: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5"/><path d="M5 11v9h14v-9"/><path d="M9.5 20v-5h5v5"/></svg>',
@@ -435,6 +436,202 @@
     return '剩 ' + h + ' 小时' + (m ? ' ' + m + ' 分' : '');
   }
 
+  /* ------------------------------------------------------------ 公告 */
+  const NOTICE_LIST_API = 'https://www.gamekee.com/v1/content/pageList';
+  const NOTICE_CACHE_MS = 10 * 60 * 1000;
+
+  const NT = {
+    list: null,
+    at: 0,
+    loading: false,
+    page: 1,
+    hasMore: false,
+    detail: null,       // 当前打开的公告
+    detailLoading: false
+  };
+
+  function noticeListUrl(page) {
+    return NOTICE_LIST_API + '?limit=20&page_no=' + page +
+      '&page_total=1&total=0&type=2&order_by=created_at&keyword=';
+  }
+
+  function loadNotices(force, page) {
+    if (!force && NT.list && NT.list.length && (Date.now() - NT.at) < NOTICE_CACHE_MS && !page) {
+      return Promise.resolve(NT.list);
+    }
+    if (NT.loading) return NT.loading;
+    const p = (page || 0);
+    const url = noticeListUrl(p);
+    const call = (window.BAFetch && window.BAFetch.available())
+      ? window.BAFetch.json(url, { 'game-alias': 'ba' })
+      : fetch(url).then(function (r) { return r.json(); });
+    NT.loading = call.then(function (j) {
+      NT.loading = false;
+      const list = (j && j.data) || [];
+      if (p > 0 && NT.list) NT.list = NT.list.concat(list);
+      else { NT.list = list; NT.at = Date.now(); }
+      NT.page = p;
+      NT.hasMore = list.length >= 20;
+      return NT.list;
+    }).catch(function () {
+      NT.loading = false;
+      return NT.list;
+    });
+    return NT.loading;
+  }
+
+  function noticeView() {
+    const list = NT.list;
+    let html = '<div style="height:12px"></div>';
+
+    if (!list) {
+      loadNotices(true).then(function () { if (state.tab === 'notice') render(); });
+      return html + '<div class="empty">正在获取公告…</div>';
+    }
+
+    html += list.map(function (n) {
+      const thumb = n.thumb ? String(n.thumb).split(',')[0] : '';
+      const img = thumb ? '<img data-murl="' + esc(absUrl(thumb)) + '" alt="">' : '<span class="noimg"></span>';
+      const date = fmtDate(n.created_at);
+      return '<button class="ntcard" data-act="nt-open" data-id="' + n.id + '">' +
+        '<span class="thumb">' + img + '</span>' +
+        '<span class="body">' +
+          '<span class="t">' + esc(n.title || '') + '</span>' +
+          '<span class="m">' + date + '</span>' +
+          '<span class="d">' + esc(n.summary || '') + '</span>' +
+        '</span>' +
+      '</button>';
+    }).join('');
+
+    if (NT.hasMore) {
+      html += '<button class="morebtn" data-act="nt-more">加载更多</button>';
+    }
+    html += '<div class="actfoot">数据来自 GameKee 公告区 · ' + fmtDate(Math.floor(NT.at / 1000)) +
+      ' 更新 <button class="linkbtn" data-act="nt-refresh">刷新</button></div>';
+
+    setTimeout(function () { hydrateRemoteImages(view); }, 0);
+    return html;
+  }
+
+  /* 富文本块 -> HTML */
+  function ntInline(node) {
+    if (!node) return '';
+    if (Array.isArray(node)) return node.map(ntInline).join('');
+    if (node.type === 'image') {
+      const src = absUrl(node.src || '');
+      return src ? '<img class="nt-img" data-murl="' + esc(src) + '" alt="">' : '';
+    }
+    if (node.type === 'link') {
+      const href = absUrl(node.href || node.url || '');
+      const txt = ntInline(node.children);
+      return '<a class="nt-link" data-act="nt-link" data-url="' + esc(href) + '">' + txt + '</a>';
+    }
+    if (typeof node.text === 'string') {
+      let t = esc(node.text);
+      if (!t) return '';
+      if (node.bold) t = '<b>' + t + '</b>';
+      if (node.color) t = '<span style="color:' + esc(node.color) + '">' + t + '</span>';
+      return t;
+    }
+    if (node.children) return ntInline(node.children);
+    return '';
+  }
+
+  function ntBlock(b) {
+    if (!b || !b.type) return '';
+    switch (b.type) {
+      case 'header1': return '<h2 class="nt-h1">' + ntInline(b.children) + '</h2>';
+      case 'header2': return '<h3 class="nt-h2">' + ntInline(b.children) + '</h3>';
+      case 'header3': return '<h4 class="nt-h3">' + ntInline(b.children) + '</h4>';
+      case 'divider': return '<hr class="nt-hr">';
+      case 'image': return '<div class="nt-imgwrap">' + ntInline([b]) + '</div>';
+      case 'table': {
+        const rows = (b.children || []).map(function (row) {
+          const cells = (row.children || []).map(function (c) { return '<td>' + ntInline(c.children) + '</td>'; }).join('');
+          return '<tr>' + cells + '</tr>';
+        }).join('');
+        return '<div class="nt-tablewrap"><table class="nt-table">' + rows + '</table></div>';
+      }
+      case 'flod': return '<div class="nt-p">' + ntInline(b.children) + '</div>';
+      default: return '<p class="nt-p">' + ntInline(b.children) + '</p>';
+    }
+  }
+
+  function ntRender(inner) {
+    if (!inner) return '<div class="empty">公告内容为空</div>';
+    const keys = Object.keys(inner).filter(function (k) { return /^\d+$/.test(k); })
+      .sort(function (a, b) { return Number(a) - Number(b); });
+    if (!keys.length) return ntBlock(inner);
+    return keys.map(function (k) { return ntBlock(inner[k]); }).join('');
+  }
+
+  function openNotice(id) {
+    NT.detail = { id: id, loading: true, html: '', title: '', date: '' };
+    renderNoticeOverlay();
+    const meta = (NT.list || []).filter(function (n) { return String(n.id) === String(id); })[0] || {};
+    NT.detail.title = meta.title || '';
+    NT.detail.date = meta.created_at ? fmtDate(meta.created_at) : '';
+
+    const url = 'https://www.gamekee.com/v1/content/detail/' + id;
+    const call = (window.BAFetch && window.BAFetch.available())
+      ? window.BAFetch.json(url, { 'game-alias': 'ba' })
+      : fetch(url).then(function (r) { return r.json(); });
+    call.then(function (j) {
+      const d = (j && j.data) || {};
+      const cdn = d.content_cdn ? ('https:' + d.content_cdn) : '';
+      NT.detail.title = d.title || NT.detail.title;
+      NT.detail.date = d.created_at ? fmtDate(d.created_at) : NT.detail.date;
+      if (!cdn) return null;
+      const getCdn = (window.BAFetch && window.BAFetch.available())
+        ? window.BAFetch.text(cdn, { Referer: 'https://www.gamekee.com/' })
+        : fetch(cdn).then(function (r) { return r.text(); });
+      return getCdn.then(function (txt) {
+        const o = JSON.parse(txt);
+        const inner = typeof o.content === 'string' ? JSON.parse(o.content) : o;
+        NT.detail.html = ntRender(inner);
+        NT.detail.loading = false;
+      });
+    }).catch(function (e) {
+      NT.detail.loading = false;
+      NT.detail.html = '<div class="empty">公告加载失败</div>';
+    }).then(function () {
+      NT.detail.loading = false;
+      if (NT.detail && String(NT.detail.id) === String(id)) renderNoticeOverlay();
+    });
+  }
+
+  function renderNoticeOverlay() {
+    const d = NT.detail;
+    if (!d) return;
+    let root = document.getElementById('nt-view');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'nt-view';
+      root.className = 'nt-root';
+      document.body.appendChild(root);
+    }
+    root.innerHTML =
+      '<div class="nt-head">' +
+        '<button class="navbtn back" data-act="nt-close">' + ICON.back + '</button>' +
+        '<div class="nt-title"><h2>' + esc(d.title || '公告') + '</h2>' +
+          '<span>' + esc(d.date || '') + '</span></div>' +
+      '</div>' +
+      '<div class="nt-body">' +
+        (d.loading ? '<div class="empty">正在加载公告内容…</div>' : (d.html || '')) +
+        '<div style="height:30px"></div>' +
+      '</div>';
+    requestAnimationFrame(function () { root.classList.add('open'); });
+    setTimeout(function () { hydrateRemoteImages(root); }, 0);
+  }
+
+  function closeNotice() {
+    const root = document.getElementById('nt-view');
+    if (!root) return;
+    root.classList.remove('open');
+    setTimeout(function () { if (root.parentNode) root.parentNode.removeChild(root); }, 220);
+    NT.detail = null;
+  }
+
   function overviewView() {
     warmActivities();
     warmPools();
@@ -504,7 +701,7 @@
     html += '<div class="actfoot">数据来自 GameKee 活动日历 · ' + fmtDate(Math.floor(data.at / 1000)) +
       ' 更新 <button class="linkbtn" data-act="act-refresh">刷新</button></div>';
 
-    setTimeout(hydrateActivityImages, 0);
+    setTimeout(hydrateRemoteImages, 0);
     return html;
   }
 
@@ -575,7 +772,7 @@
     html += '<div class="actfoot">数据来自 GameKee 卡池日历 · ' + fmtDate(Math.floor(data.at / 1000)) +
       ' 更新 <button class="linkbtn" data-act="pool-refresh">刷新</button></div>';
 
-    setTimeout(hydrateActivityImages, 0);
+    setTimeout(hydrateRemoteImages, 0);
     return html;
   }
 
@@ -602,9 +799,9 @@
     view.innerHTML = overviewView();
   }
 
-  // 活动封面是远程 webp（CDN 校验 Referer），走原生桥取回后显示
-  function hydrateActivityImages() {
-    const imgs = Array.prototype.slice.call(view.querySelectorAll('img[data-murl]'));
+  // 远程图片（CDN 校验 Referer）统一走原生桥取回后显示
+  function hydrateRemoteImages(rootEl) {
+    const imgs = Array.prototype.slice.call((rootEl || view).querySelectorAll('img[data-murl]'));
     imgs.forEach(function (img) {
       const url = img.getAttribute('data-murl');
       img.removeAttribute('data-murl');
@@ -1494,7 +1691,7 @@
   }
 
   function renderTop() {
-    const titles = { overview: ['DASHBOARD', '总览'], students: ['STUDENT DEX', '学生图鉴'], schools: ['ACADEMY', '学院'], favorites: ['FAVORITES', '收藏'], more: ['ABOUT', '更多'] };
+    const titles = { overview: ['DASHBOARD', '总览'], notice: ['NOTICE', '公告'], students: ['STUDENT DEX', '学生图鉴'], schools: ['ACADEMY', '学院'], favorites: ['FAVORITES', '收藏'], more: ['ABOUT', '更多'] };
     const t = titles[state.tab];
     let count = '';
     if (state.tab === 'students') count = filtered().length + ' / ' + INDEX.length;
@@ -1532,6 +1729,7 @@
       renderTop();
       let html = '';
       if (state.tab === 'overview') html = overviewView();
+      else if (state.tab === 'notice') html = noticeView();
       else if (state.tab === 'students') html = listView();
       else if (state.tab === 'schools') html = schoolsView();
       else if (state.tab === 'favorites') html = favView();
@@ -1769,6 +1967,11 @@
     }
     if (act === 'dt') { stopVoice(); closeMediaViewer(); state.detailTab = btn.dataset.t; state.voiceCat = null; rerenderBody(); detailEl.scrollTop = 0; return; }
     if (act === 'lv') { state.skillLv[btn.dataset.i] = Number(btn.dataset.lv); rerenderBody(); return; }
+    if (act === 'nt-open') { openNotice(btn.dataset.id); return; }
+    if (act === 'nt-close') { closeNotice(); return; }
+    if (act === 'nt-more') { loadNotices(false, (NT.page || 0) + 1).then(function () { render(); }); return; }
+    if (act === 'nt-refresh') { loadNotices(true).then(function () { render(); }); toast('正在刷新公告…'); return; }
+    if (act === 'nt-link') { const u = btn.dataset.url; if (u) openExternal(u); return; }
     if (act === 'ov-mode') { state.overviewMode = btn.dataset.m === 'pool' ? 'pool' : 'activity'; if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'pool-tag') { POOL.tag = Number(btn.dataset.k) || 0; POOL.showEnded = false; if (state.tab === 'overview') rerenderOverview(); return; }
     if (act === 'pool-more') { POOL.showEnded = !POOL.showEnded; if (state.tab === 'overview') rerenderOverview(); return; }
@@ -2131,6 +2334,7 @@
 
   tabbar.innerHTML = [
     ['overview', '总览', ICON.overview],
+    ['notice', '公告', ICON.notice],
     ['students', '学生', ICON.students],
     ['schools', '学院', ICON.school],
     ['favorites', '收藏', ICON.heart],
