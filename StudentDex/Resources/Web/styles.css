@@ -1124,3 +1124,6 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--card); color: var(--ink-2); font-size: 12px; font-weight: 700;
 }
 .rserver.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.rseason.soon { opacity: .62; }
+.rseason.soon.on { opacity: 1; }

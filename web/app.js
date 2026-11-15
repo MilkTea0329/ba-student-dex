@@ -4,6 +4,7 @@
 
   const APP_NAME = '什亭之匣';
   const APP_VERSION = 'V1.0.3';
+  const BUILD_TAG = '2026-11-15 15:45';   // 每次发版更新，用于排查「装的是哪一版」
 
   // 内置数据（打包进 App），联网同步到的新学生会追加到这里
   const INDEX = (window.BA_INDEX || []).slice();
@@ -672,7 +673,9 @@
 
     html += '<div class="rankseasons">' + list.map(function (s, i) {
       const on = i === idx;
-      return '<button class="rseason' + (on ? ' on' : '') + '" data-act="rank-season" data-s="' + esc(s.season) + '">' +
+      const st = rankTime(s.startTime);
+      const upcoming = !isNaN(st) && st > now;
+      return '<button class="rseason' + (on ? ' on' : '') + (upcoming ? ' soon' : '') + '" data-act="rank-season" data-s="' + esc(s.season) + '">' +
         '#' + esc(s.season) + (s.boss ? '<span>' + esc(s.boss) + '</span>' : '') + '</button>';
     }).join('') + '</div>';
 
@@ -1346,6 +1349,7 @@
       '<div class="panel">' +
         '<div class="rowlink"><span>应用名称</span><span class="r">' + esc(APP_NAME) + '</span></div>' +
         '<div class="rowlink"><span>版本</span><span class="r" id="app-version">' + esc(APP_VERSION) + '</span></div>' +
+        '<div class="rowlink"><span>构建</span><span class="r">' + esc(BUILD_TAG) + '</span></div>' +
         '<button class="rowlink" data-act="check-update" style="width:100%;text-align:left">' +
           '<span>检查更新</span><span class="r" id="update-status">›</span></button>' +
         '<div class="rowlink"><span>学生总数</span><span class="r">' + INDEX.length + ' 名</span></div>' +
