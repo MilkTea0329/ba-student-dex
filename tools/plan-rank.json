@@ -1,0 +1,16 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "K01", "wait": 3500, "after": 300,
+      "js": "(function(){var t=document.querySelector('[data-tab=rank]');if(!t)return{noTab:true};t.click();return {tabs:Array.from(document.querySelectorAll('.tabbar button')).map(function(b){return b.textContent})}})()" },
+    { "name": "K02-frame", "after": 6000, "wait": 300,
+      "js": "(function(){var h=document.getElementById('rank-host');var f=h?h.querySelector('iframe'):null;return {host:!!h,height:h?h.style.height:null,frame:!!f,src:f?f.getAttribute('src'):null,errs:window.__errs}})()" },
+    { "name": "K03-shot", "after": 400, "wait": 100, "js": "'x'" },
+    { "name": "K04-elim", "after": 500, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];if(!b)return{noBtn:true};b.click();return 'ok'})()" },
+    { "name": "K05-elim-src", "after": 3000, "wait": 300,
+      "js": "(function(){var f=document.querySelector('#rank-host iframe');return {src:f?f.getAttribute('src'):null,errs:window.__errs}})()" }
+  ]
+}

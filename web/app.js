@@ -154,6 +154,7 @@
   }
 
   const ICON = {
+    rank: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
     notice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h9l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V5A1.5 1.5 0 0 1 6.5 3.5z"/><path d="M15 3.5V8h4.5"/><path d="M8.5 12h7M8.5 15.5h7M8.5 8.5h3"/></svg>',
     overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M8 3v3M16 3v3M3.5 9.5h17"/><path d="M7.5 13h3M7.5 16.5h3M13.5 13h3M13.5 16.5h3"/></svg>',
     students: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
@@ -442,6 +443,62 @@
     if (d >= 1) return '剩 ' + d + ' 天' + (h ? ' ' + h + ' 小时' : '');
     const m = Math.floor((diff % 3600) / 60);
     return '剩 ' + h + ' 小时' + (m ? ' ' + m + ' 分' : '');
+  }
+
+  /* ----------------------------------------------------- 档线（第三方数据） */
+  const RANK_SRC = {
+    raid: 'https://arona.icu/raidRank',
+    eliminate: 'https://arona.icu/eliminateRaidRank'
+  };
+
+  const RANK = { mode: 'raid', mounted: false };
+
+  function rankView() {
+    let html = '<div style="height:12px"></div>';
+    html += '<div class="segwrap"><div class="seg">' +
+      '<button class="' + (RANK.mode !== 'eliminate' ? 'on' : '') + '" data-act="rank-mode" data-m="raid">总力战</button>' +
+      '<button class="' + (RANK.mode === 'eliminate' ? 'on' : '') + '" data-act="rank-mode" data-m="eliminate">大决战</button>' +
+      '</div></div>';
+    html += '<div class="rankhost" id="rank-host">' +
+      '<div class="rankloading">正在加载档线数据…</div>' +
+      '</div>';
+    html += '<div class="actfoot">档线数据由 <b>arona.icu</b>（什亭之匣）实时提供 · 若上方显示异常，请' +
+      ' <button class="linkbtn" data-act="rank-open">用浏览器打开</button></div>';
+
+    setTimeout(mountRankFrame, 0);
+    return html;
+  }
+
+  function mountRankFrame() {
+    const host = document.getElementById('rank-host');
+    if (!host) { RANK.mounted = false; return; }
+    // 尺寸 = 视口 - 顶栏 - 底栏
+    const top = topbar.offsetHeight || 0;
+    const bottom = (document.querySelector('.tabbar') || {}).offsetHeight || 58;
+    host.style.height = Math.max(200, window.innerHeight - top - bottom - 8) + 'px';
+
+    let frame = host.querySelector('iframe');
+    if (!frame) {
+      frame = document.createElement('iframe');
+      frame.setAttribute('allow', 'clipboard-write');
+      frame.style.cssText = 'width:100%;height:100%;border:0;display:block;background:var(--card)';
+      frame.src = RANK_SRC[RANK.mode];
+      frame.onload = function () {
+        const ld = host.querySelector('.rankloading');
+        if (ld) ld.remove();
+      };
+      host.appendChild(frame);
+      RANK.mounted = true;
+    } else {
+      const want = RANK_SRC[RANK.mode];
+      if (frame.src !== want) frame.src = want;
+    }
+  }
+
+  function unmountRankFrame() {
+    const host = document.getElementById('rank-host');
+    if (host) { host.innerHTML = '<div class="rankloading">正在加载档线数据…</div>'; }
+    RANK.mounted = false;
   }
 
   /* ------------------------------------------------------------ 公告 */
@@ -1839,7 +1896,7 @@
   }
 
   function renderTop() {
-    const titles = { overview: ['DASHBOARD', '总览'], notice: ['NOTICE', '公告'], students: ['STUDENT DEX', '学生图鉴'], schools: ['ACADEMY', '学院'], favorites: ['FAVORITES', '收藏'], more: ['ABOUT', '更多'] };
+    const titles = { overview: ['DASHBOARD', '总览'], rank: ['RANK', '档线'], notice: ['NOTICE', '公告'], students: ['STUDENT DEX', '学生图鉴'], schools: ['ACADEMY', '学院'], favorites: ['FAVORITES', '收藏'], more: ['ABOUT', '更多'] };
     const t = titles[state.tab];
     let count = '';
     if (state.tab === 'students') count = filtered().length + ' / ' + INDEX.length;
@@ -1878,6 +1935,7 @@
       let html = '';
       if (state.tab === 'overview') html = overviewView();
       else if (state.tab === 'notice') html = noticeView();
+      else if (state.tab === 'rank') html = rankView();
       else if (state.tab === 'students') html = listView();
       else if (state.tab === 'schools') html = schoolsView();
       else if (state.tab === 'favorites') html = favView();
@@ -2018,7 +2076,8 @@
       detailEl.innerHTML = detailHTML(STUDENTS[state.detail]);
       return;
     }
-    if (act === 'tab') { state.tab = btn.dataset.tab; render(); return; }
+    if (act === 'tab') {
+      if (state.tab === 'rank' && btn.dataset.tab !== 'rank') unmountRankFrame(); state.tab = btn.dataset.tab; render(); return; }
     if (act === 'quick') {
       const k = btn.dataset.k;
       if (k === 'all') {
@@ -2127,6 +2186,8 @@
     }
     if (act === 'pick-close') { closeStudentPicker(); return; }
     if (act === 'pick-item') { closeStudentPicker(); openDetail(String(btn.dataset.id)); return; }
+    if (act === 'rank-mode') { RANK.mode = btn.dataset.m === 'eliminate' ? 'eliminate' : 'raid'; unmountRankFrame(); if (state.tab === 'rank') { render(); } return; }
+    if (act === 'rank-open') { openExternal(RANK_SRC[RANK.mode]); return; }
     if (act === 'nt-open') { openNotice(btn.dataset.id); return; }
     if (act === 'doc-open') {
       openNotice(btn.dataset.id, { title: btn.dataset.title, date: btn.dataset.date, url: btn.dataset.url });
@@ -2498,6 +2559,7 @@
 
   tabbar.innerHTML = [
     ['overview', '总览', ICON.overview],
+    ['rank', '档线', ICON.rank],
     ['notice', '公告', ICON.notice],
     ['students', '学生', ICON.students],
     ['schools', '学院', ICON.school],
