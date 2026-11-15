@@ -1,0 +1,14 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "E1", "wait": 3500, "after": 200,
+      "js": "(function(){document.querySelector('[data-tab=rank]').click();var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='cn'})[0];if(b)b.click();return 'ok'})()" },
+    { "name": "E2-mode", "after": 6000, "wait": 200,
+      "js": "(function(){var e=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];e.click();return 'ok'})()" },
+    { "name": "E3-data", "after": 9000, "wait": 300,
+      "js": "(function(){var meta=document.querySelector('.rankmeta');var sel=document.querySelector('.rseason.on');return {sel:sel?sel.textContent:null,meta:meta?meta.innerText:null,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),empty:(document.querySelector('.empty')||{}).textContent}})()" },
+    { "name": "E4-shot", "after": 400, "wait": 100, "js": "'x'" }
+  ]
+}

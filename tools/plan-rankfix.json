@@ -1,0 +1,24 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "K1", "wait": 3500, "after": 300,
+      "js": "(function(){document.querySelector('[data-tab=rank]').click();return 'ok'})()" },
+    { "name": "K2-jp", "after": 7000, "wait": 300,
+      "js": "(function(){return {servers:Array.from(document.querySelectorAll('.rserver')).map(function(b){return b.textContent}),sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),errs:window.__errs}})()" },
+    { "name": "K3-shot", "after": 400, "wait": 100, "js": "'x'" },
+    { "name": "K4-cn", "after": 600, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='cn'})[0];b.click();return 'ok'})()" },
+    { "name": "K5-cn-data", "after": 7000, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')})}})()" },
+    { "name": "K6-as", "after": 600, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='as'})[0];b.click();return 'ok'})()" },
+    { "name": "K7-as-data", "after": 7000, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),empty:(document.querySelector('.empty')||{}).textContent,findBtn:!!document.querySelector('[data-act=rank-find]')}})()" },
+    { "name": "K8-elim-cn", "after": 500, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];b.click();return 'ok'})()" },
+    { "name": "K9-elim-data", "after": 7000, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),errs:window.__errs}})()" }
+  ]
+}

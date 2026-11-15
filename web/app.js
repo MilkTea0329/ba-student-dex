@@ -454,24 +454,34 @@
     'Authorization': 'ba-token uuz:uuz',
     'Referer': 'https://arona.icu'
   };
+
+  // arona 的全部服务器（编号来自官方文档）
   const RANK_SERVERS = [
-    { id: 'jp', name: '日服', code: 3 },
-    { id: 'cn', name: '国服', code: 1 },
-    { id: 'gl', name: '国际服', code: 8 }
+    { id: 'cn',  name: '国服',   code: 1 },
+    { id: 'b',   name: 'B服',    code: 2 },
+    { id: 'jp',  name: '日服',   code: 3 },
+    { id: 'mix', name: '综合',   code: 4 },
+    { id: 'gl',  name: '全球',   code: 5 },
+    { id: 'hmt', name: '港澳台', code: 6 },
+    { id: 'kr',  name: '韩服',   code: 7 },
+    { id: 'as',  name: '亚服',   code: 8 },
+    { id: 'na',  name: '北美',   code: 9 }
   ];
+
   const HARD_NAME = {
     N: '普通', H: '困难', VH: '非常困难', HC: '硬核',
     EX: '极限', INS: '疯狂', IN: '疯狂', TM: '折磨'
   };
-  const TIER_NAME = { 20000: '一档', 120000: '二档', 240000: '三档' };
 
   const RANK = {
-    mode: 'raid',        // raid | eliminate
+    mode: 'raid',
     server: 'jp',
-    seasons: {},         // key -> { at, list }
-    sel: {},             // key -> season 名
-    cut: {},             // key -> { at, data }
+    seasons: {},
+    sel: {},
+    cut: {},
     loading: {},
+    probing: {},
+    noData: {},
     lastCall: 0,
     queue: Promise.resolve()
   };
@@ -481,10 +491,17 @@
     return s ? s.code : 3;
   }
 
-  // 串行 + 间隔：接口限制 5 次/秒，这里压到 ~2.5 次/秒
+  // 稳定的时间解析（不依赖 Date.parse 对各平台格式的兼容）
+  function rankTime(str) {
+    const m = String(str || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (!m) return NaN;
+    return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 8, +m[5]);  // 站点时间是 UTC+8
+  }
+
+  // 串行队列：接口限制 5 次/秒，这里压到约 2.4 次/秒
   function aronaCall(path, body) {
     const run = function () {
-      const wait = Math.max(0, 400 - (Date.now() - RANK.lastCall));
+      const wait = Math.max(0, 420 - (Date.now() - RANK.lastCall));
       return new Promise(function (r) { setTimeout(r, wait); }).then(function () {
         RANK.lastCall = Date.now();
         const payload = JSON.stringify(body || {});
@@ -493,11 +510,11 @@
           ? window.BAFetch.post(ARONA_BASE + path, ARONA_HEADERS, payload)
           : fetch(ARONA_BASE + path, { method: 'POST', headers: ARONA_HEADERS, body: payload }).then(function (r) { return r.text(); });
         return call.then(function (txt) {
-          const j = JSON.parse(txt);
-          if (j && j.code === 4006) {
-            return new Promise(function (r) { setTimeout(r, 1800); })
-              .then(function () { return call; })
-              .then(function (t2) { return JSON.parse(t2); });
+          let j;
+          try { j = JSON.parse(txt); } catch (e) { return { code: -99 }; }
+          if (j && j.code === 4006) {   // 频率限制：退避 1.8s 重试一次
+            return new Promise(function (r) { setTimeout(r, 1800); }).then(function () { return call; })
+              .then(function (t2) { try { return JSON.parse(t2); } catch (e2) { return { code: -99 }; } });
           }
           return j;
         });
@@ -508,87 +525,115 @@
     return p;
   }
 
-  function seasonList(kind, serverId) {
-    return kind === 'eliminate'
-      ? aronaCall('/api/season/eliminate_raid_season_list', { server: rankServerCode(serverId) })
-      : aronaCall('/api/season/list', { server: rankServerCode(serverId) });
-  }
-
   function normalizeSeasons(kind, data) {
-    return (data || []).map(function (x) {
+    const list = (data || []).map(function (x) {
       if (kind === 'eliminate') {
-        const bosses = (x.bossInfo || []).map(function (b) { return b.name; });
+        const bosses = (x.bossInfo || []).map(function (b) { return b.name; })
+          .filter(function (v, i, a) { return a.indexOf(v) === i; });
         return {
-          season: x.seasonName,
-          boss: bosses.filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' / '),
+          id: x.season,                                  // 接口用的数字 id（可能是 -1、0…）
+          season: String(x.seasonName != null ? x.seasonName : x.season),
+          boss: bosses.join(' / '),
           map: (x.bossInfo && x.bossInfo[0] && x.bossInfo[0].map && x.bossInfo[0].map.value) || '',
           startTime: x.startTime || '',
           endTime: x.endTime || ''
         };
       }
       return {
+        id: x.season,
         season: String(x.season),
         boss: x.boss || '',
         map: (x.map && x.map.value) || '',
         startTime: x.startTime || '',
         endTime: x.endTime || ''
       };
-    }).filter(function (x) { return x.season; });
+    }).filter(function (x) { return x.id !== undefined && x.id !== null; });
+
+    // 统一按开赛时间倒序（两个接口的顺序不一致）
+    list.sort(function (a, b) {
+      const ta = rankTime(a.startTime), tb = rankTime(b.startTime);
+      if (isNaN(ta) && isNaN(tb)) return 0;
+      if (isNaN(ta)) return 1;
+      if (isNaN(tb)) return -1;
+      return tb - ta;
+    });
+    return list;
   }
 
-  function cutoffs(kind, serverId, season) {
-    return kind === 'eliminate'
-      ? aronaCall('/api/eliminate_raid_rank/list_top', { server: rankServerCode(serverId), season: Number(season) })
-      : aronaCall('/api/v2/rank/list_top', { server: rankServerCode(serverId), season: Number(season) });
-  }
+  function rankKey() { return RANK.mode + '.' + RANK.server; }
 
-  function fmtScore(n) {
-    const v = Number(n || 0);
-    return v.toLocaleString('en-US');
-  }
-
-  function rankNeed(key) {
-    return new Promise(function (resolve) {
-      const cache = RANK.seasons[key];
-      if (cache && Date.now() - cache.at < 30 * 60 * 1000) { resolve(cache.list); return; }
-      const kind = key.split('.')[0];
-      const serverId = key.split('.')[1];
-      RANK.loading[key] = true;
-      seasonList(kind, serverId).then(function (j) {
-        const list = normalizeSeasons(kind, j && j.data);
-        RANK.seasons[key] = { at: Date.now(), list: list };
-        RANK.loading[key] = false;
-        resolve(list);
-      }).catch(function () {
-        RANK.loading[key] = false;
-        resolve(RANK.seasons[key] ? RANK.seasons[key].list : null);
-      });
+  function loadSeasons(key) {
+    const cache = RANK.seasons[key];
+    if (cache && Date.now() - cache.at < 30 * 60 * 1000) return Promise.resolve(cache.list);
+    const parts = key.split('.');
+    const code = rankServerCode(parts[1]);
+    const req = parts[0] === 'eliminate'
+      ? aronaCall('/api/season/eliminate_raid_season_list', { server: code })
+      : aronaCall('/api/season/list', { server: code });
+    RANK.loading[key] = true;
+    return req.then(function (j) {
+      const list = normalizeSeasons(parts[0], j && j.data);
+      RANK.seasons[key] = { at: Date.now(), list: list };
+      RANK.loading[key] = false;
+      return list;
+    }).catch(function () {
+      RANK.loading[key] = false;
+      return RANK.seasons[key] ? RANK.seasons[key].list : null;
     });
   }
 
-  function rankCutoffs(key, season) {
-    const ck = key + '#' + season;
-    return new Promise(function (resolve) {
-      const cache = RANK.cut[ck];
-      if (cache && Date.now() - cache.at < 5 * 60 * 1000) { resolve(cache.data); return; }
-      const kind = key.split('.')[0];
-      const serverId = key.split('.')[1];
-      RANK.loading['c' + ck] = true;
-      cutoffs(kind, serverId, season).then(function (j) {
-        const data = (j && j.data) || [];
-        RANK.cut[ck] = { at: Date.now(), data: data };
-        RANK.loading['c' + ck] = false;
-        resolve(data);
-      }).catch(function () {
-        RANK.loading['c' + ck] = false;
-        resolve(RANK.cut[ck] ? RANK.cut[ck].data : null);
-      });
+  function loadCutoffs(key, seasonId) {
+    const ck = key + '#' + seasonId;
+    const cache = RANK.cut[ck];
+    if (cache && Date.now() - cache.at < 5 * 60 * 1000) return Promise.resolve(cache.data);
+    const parts = key.split('.');
+    const code = rankServerCode(parts[1]);
+    const req = parts[0] === 'eliminate'
+      ? aronaCall('/api/eliminate_raid_rank/list_top', { server: code, season: Number(seasonId) })
+      : aronaCall('/api/v2/rank/list_top', { server: code, season: Number(seasonId) });
+    RANK.loading['c' + ck] = true;
+    return req.then(function (j) {
+      const data = (j && j.data) || [];
+      RANK.cut[ck] = { at: Date.now(), data: data };
+      RANK.loading['c' + ck] = false;
+      return data;
+    }).catch(function () {
+      RANK.loading['c' + ck] = false;
+      return RANK.cut[ck] ? RANK.cut[ck].data : null;
     });
   }
+
+  // 当前期没有档线时，往前找最近一期有数据的
+  function findSeasonWithData(key, list, fromIndex) {
+    let i = fromIndex;
+    const step = function () {
+      if (i >= list.length) return Promise.resolve(null);
+      const s = list[i];
+      return loadCutoffs(key, s.id).then(function (d) {
+        if (d && d.length) return s;
+        i++;
+        return step();
+      });
+    };
+    return step();
+  }
+
+  function rankTierName(rank) {
+    if (rank === 20000) return '一档';
+    if (rank === 120000) return '二档';
+    if (rank === 240000) return '三档';
+    if (rank === 8000) return '一档';
+    if (rank === 48000) return '二档';
+    if (rank === 12000) return '一档';
+    if (rank === 72000) return '二档';
+    return '前 ' + Number(rank).toLocaleString('en-US') + ' 名';
+  }
+
+  function fmtScore(n) { return Number(n || 0).toLocaleString('en-US'); }
 
   function rankView() {
     const kind = RANK.mode;
-    const key = kind + '.' + RANK.server;
+    const key = rankKey();
     let html = '<div style="height:12px"></div>';
 
     html += '<div class="segwrap"><div class="seg">' +
@@ -596,15 +641,14 @@
       '<button class="' + (kind === 'eliminate' ? 'on' : '') + '" data-act="rank-mode" data-m="eliminate">大决战</button>' +
       '</div></div>';
 
-    html += '<div class="segwrap" style="margin-top:8px"><div class="seg">' +
-      RANK_SERVERS.map(function (s) {
-        return '<button class="' + (RANK.server === s.id ? 'on' : '') + '" data-act="rank-server" data-s="' + s.id + '">' + s.name + '</button>';
-      }).join('') +
-      '</div></div>';
+    // 服务器：横向滚动，全部列出
+    html += '<div class="rservers">' + RANK_SERVERS.map(function (s) {
+      return '<button class="rserver' + (RANK.server === s.id ? ' on' : '') + '" data-act="rank-server" data-s="' + s.id + '">' + s.name + '</button>';
+    }).join('') + '</div>';
 
     const cache = RANK.seasons[key];
     if (!cache) {
-      rankNeed(key).then(function () { if (state.tab === 'rank') render(); });
+      loadSeasons(key).then(function () { if (state.tab === 'rank') render(); });
       return html + '<div class="empty">正在获取档线数据…</div>';
     }
 
@@ -615,17 +659,19 @@
         ' <button class="linkbtn" data-act="rank-open">查看网页</button></div>';
     }
 
-    // 默认选最新一期（开赛时间已到的最近一期）
+    // 默认：最新一期「已开赛」，没有则取第一条
     const now = Date.now();
-    if (!RANK.sel[key] || !list.some(function (s) { return s.season === RANK.sel[key]; })) {
-      const started = list.filter(function (s) { const t = Date.parse(s.startTime.replace(/-/g, '/')); return !t || t <= now; });
-      RANK.sel[key] = (started[0] || list[0]).season;
+    let idx = -1;
+    if (RANK.sel[key]) idx = list.findIndex(function (s) { return s.season === RANK.sel[key]; });
+    if (idx < 0) {
+      idx = list.findIndex(function (s) { const t = rankTime(s.startTime); return !isNaN(t) && t <= now; });
+      if (idx < 0) idx = 0;
+      RANK.sel[key] = list[idx].season;
     }
-    const cur = list.filter(function (s) { return s.season === RANK.sel[key]; })[0] || list[0];
+    const cur = list[idx];
 
-    // 期数选择：横向滚动
-    html += '<div class="rankseasons">' + list.map(function (s) {
-      const on = s.season === cur.season;
+    html += '<div class="rankseasons">' + list.map(function (s, i) {
+      const on = i === idx;
       return '<button class="rseason' + (on ? ' on' : '') + '" data-act="rank-season" data-s="' + esc(s.season) + '">' +
         '#' + esc(s.season) + (s.boss ? '<span>' + esc(s.boss) + '</span>' : '') + '</button>';
     }).join('') + '</div>';
@@ -636,18 +682,22 @@
       '<span class="time">' + esc(cur.startTime) + ' → ' + esc(cur.endTime) + '</span>' +
       '</div>';
 
-    const ck = key + '#' + cur.season;
+    const ck = key + '#' + cur.id;
     const cut = RANK.cut[ck];
     if (!cut) {
-      rankCutoffs(key, cur.season).then(function () { if (state.tab === 'rank') render(); });
+      loadCutoffs(key, cur.id).then(function () { if (state.tab === 'rank') render(); });
       html += '<div class="empty">正在获取档线…</div>';
     } else if (!cut.data.length) {
-      html += '<div class="empty">该期暂无档线数据</div>';
+      html += '<div class="empty">该期暂无档线数据（arona 未收录）</div>';
+      if (RANK.probing[key]) {
+        html += '<div class="empty">正在向前查找…</div>';
+      } else if (!RANK.noData[key]) {
+        html += '<button class="morebtn" data-act="rank-find">查找最近有数据的一期</button>';
+      }
     } else {
       html += '<div class="rankcards">' + cut.data.map(function (x) {
-        const tier = TIER_NAME[x.rank] || (x.rank + ' 名');
         return '<div class="rankcard">' +
-          '<div class="rk-tier">' + tier + '</div>' +
+          '<div class="rk-tier">' + rankTierName(x.rank) + '</div>' +
           '<div class="rk-score">' + fmtScore(x.bestRankingPoint) + '</div>' +
           '<div class="rk-sub">第 ' + fmtScore(x.rank) + ' 名' +
             (x.hard ? ' · ' + (HARD_NAME[x.hard] || x.hard) : '') +
@@ -659,7 +709,8 @@
 
     html += '<div class="actfoot">档线数据由 <b>arona.icu</b>（什亭之匣）提供 · ' +
       (cache.at ? fmtDate(Math.floor(cache.at / 1000)) : '') +
-      ' <button class="linkbtn" data-act="rank-open">查看网页</button> <button class="linkbtn" data-act="rank-refresh">刷新</button></div>';
+      ' <button class="linkbtn" data-act="rank-open">查看网页</button>' +
+      ' <button class="linkbtn" data-act="rank-refresh">刷新</button></div>';
 
     return html;
   }
@@ -2369,6 +2420,20 @@
       delete RANK.seasons[key];
       Object.keys(RANK.cut).forEach(function (k) { if (k.indexOf(key + '#') === 0) delete RANK.cut[k]; });
       if (state.tab === 'rank') render();
+      return;
+    }
+    if (act === 'rank-find') {
+      const key = rankKey();
+      const list = (RANK.seasons[key] || {}).list || [];
+      const idx = list.findIndex(function (x) { return x.season === RANK.sel[key]; });
+      RANK.probing[key] = true;
+      if (state.tab === 'rank') render();
+      findSeasonWithData(key, list, idx + 1).then(function (found) {
+        RANK.probing[key] = false;
+        if (found) { RANK.sel[key] = found.season; toast('已跳到 #' + found.season + ' 期'); }
+        else { RANK.noData[key] = true; toast('该服务器没有收录档线数据'); }
+        if (state.tab === 'rank') render();
+      });
       return;
     }
     if (act === 'rank-open') {

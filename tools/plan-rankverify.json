@@ -1,0 +1,18 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "V1", "wait": 3500, "after": 200,
+      "js": "(function(){var m=document.getElementById('update-modal');if(m){var b=document.querySelector('[data-act=modal-close]');if(b)b.click();}document.querySelector('[data-tab=rank]').click();return 'ok'})()" },
+    { "name": "V2-b", "after": 6500, "wait": 300,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='b'})[0];if(b)b.click();return 'ok'})()" },
+    { "name": "V3-b-data", "after": 6500, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')})}})()" },
+    { "name": "V4-jp-elim", "after": 400, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='jp'})[0];if(b)b.click();var m=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];if(m)m.click();return 'ok'})()" },
+    { "name": "V5-jp-elim-data", "after": 8000, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),errs:window.__errs}})()" },
+    { "name": "V6-shot", "after": 400, "wait": 100, "js": "'x'" }
+  ]
+}

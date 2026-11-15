@@ -1113,3 +1113,14 @@ a { color: var(--accent); text-decoration: none; }
 .rankcard .rk-score { font-size: 21px; font-weight: 800; color: var(--ink); letter-spacing: -.4px;
   font-variant-numeric: tabular-nums; }
 .rankcard .rk-sub { font-size: 11px; color: var(--sub); }
+
+.rservers {
+  display: flex; gap: 7px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px 0 2px; scrollbar-width: none;
+}
+.rservers::-webkit-scrollbar { display: none; }
+.rserver {
+  flex: none; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink-2); font-size: 12px; font-weight: 700;
+}
+.rserver.on { background: var(--accent); border-color: var(--accent); color: #fff; }

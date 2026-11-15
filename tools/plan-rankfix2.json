@@ -1,0 +1,20 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "M1", "wait": 3500, "after": 200,
+      "js": "(function(){document.querySelector('[data-tab=rank]').click();var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='cn'})[0];return 'ok'})()" },
+    { "name": "M2-cn-raid", "after": 7000, "wait": 300,
+      "js": "(function(){var e=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];e.click();return 'ok'})()" },
+    { "name": "M3-elim", "after": 7000, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),empty:(document.querySelector('.empty')||{}).textContent)}})()" },
+    { "name": "M4-shot", "after": 400, "wait": 100, "js": "'x'" },
+    { "name": "M5-as-find", "after": 500, "wait": 100,
+      "js": "(function(){var r=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='raid'})[0];r.click();setTimeout(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='as'})[0];b.click();},300);return 'ok'})()" },
+    { "name": "M6-wait", "after": 7000, "wait": 300,
+      "js": "(function(){var btn=document.querySelector('[data-act=rank-find]');if(!btn)return{noBtn:true,empty:(document.querySelector('.empty')||{}).textContent};btn.click();return 'clicked'})()" },
+    { "name": "M7-found", "after": 12000, "wait": 300,
+      "js": "(function(){return {sel:(document.querySelector('.rseason.on')||{}).textContent,tiers:document.querySelectorAll('.rankcard').length,empty:(document.querySelector('.empty')||{}).textContent,toast:(document.querySelector('.toast')||{}).textContent,errs:window.__errs}})()" }
+  ]
+}
