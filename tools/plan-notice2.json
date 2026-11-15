@@ -1,0 +1,15 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "N1", "wait": 3500, "after": 200,
+      "js": "(function(){document.querySelector('[data-tab=notice]').click();return 'ok'})()" },
+    { "name": "N2", "wait": 9000, "after": 200,
+      "js": "(function(){return {cards:document.querySelectorAll('.ntcard').length,first:(document.querySelector('.ntcard .t')||{}).textContent,errs:window.__errs}})()" },
+    { "name": "N3-open", "after": 600, "wait": 100,
+      "js": "(function(){var c=document.querySelector('.ntcard');if(!c)return{noCard:true};c.click();return 'ok'})()" },
+    { "name": "N4-detail", "wait": 6000, "after": 200,
+      "js": "(function(){var r=document.getElementById('nt-view');return {overlay:!!r,blocks:r?r.querySelectorAll('.nt-p').length:0,errs:window.__errs}})()" }
+  ]
+}

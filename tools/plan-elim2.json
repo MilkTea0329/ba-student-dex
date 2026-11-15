@@ -1,0 +1,14 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "Y1", "wait": 3500, "after": 200,
+      "js": "(function(){var m=document.getElementById('update-modal');if(m){var b=document.querySelector('[data-act=modal-close]');if(b)b.click();}document.querySelector('[data-tab=rank]').click();return 'ok'})()" },
+    { "name": "Y2-cn-elim", "after": 6000, "wait": 200,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='cn'})[0];b.click();setTimeout(function(){var e=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];e.click();},400);return 'ok'})()" },
+    { "name": "Y3-elim", "after": 8000, "wait": 300,
+      "js": "(function(){var chips=Array.from(document.querySelectorAll('.rseason')).map(function(c){return c.textContent});return {chips:chips.slice(0,3),sel:(document.querySelector('.rseason.on')||{}).textContent,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),errs:window.__errs}})()" },
+    { "name": "Y4-shot", "after": 400, "wait": 100, "js": "'x'" }
+  ]
+}

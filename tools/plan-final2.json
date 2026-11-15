@@ -1,0 +1,20 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "X1", "wait": 3500, "after": 200,
+      "js": "(function(){var m=document.getElementById('update-modal');if(m){var b=document.querySelector('[data-act=modal-close]');if(b)b.click();}document.querySelector('[data-tab=rank]').click();return 'ok'})()" },
+    { "name": "X2-jp", "after": 7000, "wait": 300,
+      "js": "(function(){var chips=Array.from(document.querySelectorAll('.rseason')).map(function(c){return c.textContent});return {servers:Array.from(document.querySelectorAll('.rserver')).map(function(b){return b.textContent}),chips:chips.slice(0,4),chipsTotal:chips.length,sel:(document.querySelector('.rseason.on')||{}).textContent,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.split('\\n')[1]}),findBtn:!!document.querySelector('[data-act=rank-find]'),errs:window.__errs}})()" },
+    { "name": "X3-cn", "after": 500, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='cn'})[0];b.click();return 'ok'})()" },
+    { "name": "X4-cn-data", "after": 7000, "wait": 300,
+      "js": "(function(){var chips=Array.from(document.querySelectorAll('.rseason')).map(function(c){return c.textContent});return {chips:chips.slice(0,3),sel:(document.querySelector('.rseason.on')||{}).textContent,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.split('\\n')[1]})}})()" },
+    { "name": "X5-gl", "after": 500, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='gl'})[0];if(!b)return{noGl:true};b.click();return 'ok'})()" },
+    { "name": "X6-gl-data", "after": 7000, "wait": 300,
+      "js": "(function(){var chips=Array.from(document.querySelectorAll('.rseason')).map(function(c){return c.textContent});return {chips:chips.slice(0,3),sel:(document.querySelector('.rseason.on')||{}).textContent,empty:(document.querySelector('.empty')||{}).textContent,findBtn:!!document.querySelector('[data-act=rank-find]')}})()" },
+    { "name": "X7-shot", "after": 400, "wait": 100, "js": "'x'" }
+  ]
+}

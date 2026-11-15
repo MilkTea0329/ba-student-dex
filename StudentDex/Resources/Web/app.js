@@ -4,7 +4,7 @@
 
   const APP_NAME = '什亭之匣';
   const APP_VERSION = 'V1.0.3';
-  const BUILD_TAG = '2026-11-15 15:45';   // 每次发版更新，用于排查「装的是哪一版」
+  const BUILD_TAG = '2026-11-15 21:30';   // 每次发版更新，用于排查「装的是哪一版」
 
   // 内置数据（打包进 App），联网同步到的新学生会追加到这里
   const INDEX = (window.BA_INDEX || []).slice();
@@ -456,13 +456,12 @@
     'Referer': 'https://arona.icu'
   };
 
-  // arona 的全部服务器（编号来自官方文档）
+  // 与 arona 站点完全一致的服务器列表（站点只有这 8 个，没有「综合」）
   const RANK_SERVERS = [
-    { id: 'cn',  name: '国服',   code: 1 },
+    { id: 'cn',  name: '国服',   code: 1 },   // 站点标签为「官服」
     { id: 'b',   name: 'B服',    code: 2 },
     { id: 'jp',  name: '日服',   code: 3 },
-    { id: 'mix', name: '综合',   code: 4 },
-    { id: 'gl',  name: '全球',   code: 5 },
+    { id: 'gl',  name: '全球服', code: 5 },
     { id: 'hmt', name: '港澳台', code: 6 },
     { id: 'kr',  name: '韩服',   code: 7 },
     { id: 'as',  name: '亚服',   code: 8 },
@@ -481,8 +480,7 @@
     sel: {},
     cut: {},
     loading: {},
-    probing: {},
-    noData: {},
+
     lastCall: 0,
     queue: Promise.resolve()
   };
@@ -604,21 +602,6 @@
     });
   }
 
-  // 当前期没有档线时，往前找最近一期有数据的
-  function findSeasonWithData(key, list, fromIndex) {
-    let i = fromIndex;
-    const step = function () {
-      if (i >= list.length) return Promise.resolve(null);
-      const s = list[i];
-      return loadCutoffs(key, s.id).then(function (d) {
-        if (d && d.length) return s;
-        i++;
-        return step();
-      });
-    };
-    return step();
-  }
-
   function rankTierName(rank) {
     if (rank === 20000) return '一档';
     if (rank === 120000) return '二档';
@@ -653,29 +636,27 @@
       return html + '<div class="empty">正在获取档线数据…</div>';
     }
 
-    const list = cache.list || [];
+    // 只显示「已开赛」的期数（未开赛的整条不展示）
+    const nowTs = Date.now();
+    const list = (cache.list || []).filter(function (x) {
+      const t = rankTime(x.startTime);
+      return isNaN(t) || t <= nowTs;
+    });
     if (!list.length) {
       return html + '<div class="empty">该服务器暂无' + (kind === 'eliminate' ? '大决战' : '总力战') + '数据</div>' +
         '<div class="actfoot">数据来自 <b>arona.icu</b>' +
         ' <button class="linkbtn" data-act="rank-open">查看网页</button></div>';
     }
 
-    // 默认：最新一期「已开赛」，没有则取第一条
-    const now = Date.now();
-    let idx = -1;
-    if (RANK.sel[key]) idx = list.findIndex(function (s) { return s.season === RANK.sel[key]; });
-    if (idx < 0) {
-      idx = list.findIndex(function (s) { const t = rankTime(s.startTime); return !isNaN(t) && t <= now; });
-      if (idx < 0) idx = 0;
-      RANK.sel[key] = list[idx].season;
-    }
+    // 默认最新一期（列表已按开赛时间倒序，第一条就是最近开赛的）
+    let idx = RANK.sel[key] ? list.findIndex(function (x) { return x.season === RANK.sel[key]; }) : -1;
+    if (idx < 0) idx = 0;
+    RANK.sel[key] = list[idx].season;
     const cur = list[idx];
 
     html += '<div class="rankseasons">' + list.map(function (s, i) {
       const on = i === idx;
-      const st = rankTime(s.startTime);
-      const upcoming = !isNaN(st) && st > now;
-      return '<button class="rseason' + (on ? ' on' : '') + (upcoming ? ' soon' : '') + '" data-act="rank-season" data-s="' + esc(s.season) + '">' +
+      return '<button class="rseason' + (on ? ' on' : '') + '" data-act="rank-season" data-s="' + esc(s.season) + '">' +
         '#' + esc(s.season) + (s.boss ? '<span>' + esc(s.boss) + '</span>' : '') + '</button>';
     }).join('') + '</div>';
 
@@ -692,11 +673,6 @@
       html += '<div class="empty">正在获取档线…</div>';
     } else if (!cut.data.length) {
       html += '<div class="empty">该期暂无档线数据（arona 未收录）</div>';
-      if (RANK.probing[key]) {
-        html += '<div class="empty">正在向前查找…</div>';
-      } else if (!RANK.noData[key]) {
-        html += '<button class="morebtn" data-act="rank-find">查找最近有数据的一期</button>';
-      }
     } else {
       html += '<div class="rankcards">' + cut.data.map(function (x) {
         return '<div class="rankcard">' +
@@ -2424,20 +2400,6 @@
       delete RANK.seasons[key];
       Object.keys(RANK.cut).forEach(function (k) { if (k.indexOf(key + '#') === 0) delete RANK.cut[k]; });
       if (state.tab === 'rank') render();
-      return;
-    }
-    if (act === 'rank-find') {
-      const key = rankKey();
-      const list = (RANK.seasons[key] || {}).list || [];
-      const idx = list.findIndex(function (x) { return x.season === RANK.sel[key]; });
-      RANK.probing[key] = true;
-      if (state.tab === 'rank') render();
-      findSeasonWithData(key, list, idx + 1).then(function (found) {
-        RANK.probing[key] = false;
-        if (found) { RANK.sel[key] = found.season; toast('已跳到 #' + found.season + ' 期'); }
-        else { RANK.noData[key] = true; toast('该服务器没有收录档线数据'); }
-        if (state.tab === 'rank') render();
-      });
       return;
     }
     if (act === 'rank-open') {

@@ -1125,5 +1125,3 @@ a { color: var(--accent); text-decoration: none; }
 }
 .rserver.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.rseason.soon { opacity: .62; }
-.rseason.soon.on { opacity: 1; }
