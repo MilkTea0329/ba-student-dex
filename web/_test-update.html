@@ -53,6 +53,7 @@
     if (location.search.indexOf('keep=1') < 0) localStorage.removeItem('ba_test_store');
   </script>
 
+  <script>window.__baDirect = true;  // 测试页：绕过 mock 桥，直接走 fetch（arona 接口 CORS 允许）</script>
   <script src="data.js"></script>
   <script src="parser-core.js"></script>
   <script src="sync.js"></script>

@@ -445,60 +445,223 @@
     return '剩 ' + h + ' 小时' + (m ? ' ' + m + ' 分' : '');
   }
 
-  /* ----------------------------------------------------- 档线（第三方数据） */
-  const RANK_SRC = {
-    raid: 'https://arona.icu/raidRank',
-    eliminate: 'https://arona.icu/eliminateRaidRank'
+  /* ----------------------------------------------------- 档线（arona.icu 公开 API） */
+  const ARONA_BASE = 'https://api.arona.icu';
+  const ARONA_HEADERS = {
+    'Content-Type': 'application/json',
+    'Content-Language': 'zh-CN',
+    'ba-location': 'false',
+    'Authorization': 'ba-token uuz:uuz',
+    'Referer': 'https://arona.icu'
+  };
+  const RANK_SERVERS = [
+    { id: 'jp', name: '日服', code: 3 },
+    { id: 'cn', name: '国服', code: 1 },
+    { id: 'gl', name: '国际服', code: 8 }
+  ];
+  const HARD_NAME = {
+    N: '普通', H: '困难', VH: '非常困难', HC: '硬核',
+    EX: '极限', INS: '疯狂', IN: '疯狂', TM: '折磨'
+  };
+  const TIER_NAME = { 20000: '一档', 120000: '二档', 240000: '三档' };
+
+  const RANK = {
+    mode: 'raid',        // raid | eliminate
+    server: 'jp',
+    seasons: {},         // key -> { at, list }
+    sel: {},             // key -> season 名
+    cut: {},             // key -> { at, data }
+    loading: {},
+    lastCall: 0,
+    queue: Promise.resolve()
   };
 
-  const RANK = { mode: 'raid', mounted: false };
+  function rankServerCode(id) {
+    const s = RANK_SERVERS.filter(function (x) { return x.id === id; })[0];
+    return s ? s.code : 3;
+  }
+
+  // 串行 + 间隔：接口限制 5 次/秒，这里压到 ~2.5 次/秒
+  function aronaCall(path, body) {
+    const run = function () {
+      const wait = Math.max(0, 400 - (Date.now() - RANK.lastCall));
+      return new Promise(function (r) { setTimeout(r, wait); }).then(function () {
+        RANK.lastCall = Date.now();
+        const payload = JSON.stringify(body || {});
+        const useBridge = window.BAFetch && window.BAFetch.available() && !window.__baDirect;
+        const call = useBridge
+          ? window.BAFetch.post(ARONA_BASE + path, ARONA_HEADERS, payload)
+          : fetch(ARONA_BASE + path, { method: 'POST', headers: ARONA_HEADERS, body: payload }).then(function (r) { return r.text(); });
+        return call.then(function (txt) {
+          const j = JSON.parse(txt);
+          if (j && j.code === 4006) {
+            return new Promise(function (r) { setTimeout(r, 1800); })
+              .then(function () { return call; })
+              .then(function (t2) { return JSON.parse(t2); });
+          }
+          return j;
+        });
+      });
+    };
+    const p = RANK.queue.then(run, run);
+    RANK.queue = p.catch(function () {});
+    return p;
+  }
+
+  function seasonList(kind, serverId) {
+    return kind === 'eliminate'
+      ? aronaCall('/api/season/eliminate_raid_season_list', { server: rankServerCode(serverId) })
+      : aronaCall('/api/season/list', { server: rankServerCode(serverId) });
+  }
+
+  function normalizeSeasons(kind, data) {
+    return (data || []).map(function (x) {
+      if (kind === 'eliminate') {
+        const bosses = (x.bossInfo || []).map(function (b) { return b.name; });
+        return {
+          season: x.seasonName,
+          boss: bosses.filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' / '),
+          map: (x.bossInfo && x.bossInfo[0] && x.bossInfo[0].map && x.bossInfo[0].map.value) || '',
+          startTime: x.startTime || '',
+          endTime: x.endTime || ''
+        };
+      }
+      return {
+        season: String(x.season),
+        boss: x.boss || '',
+        map: (x.map && x.map.value) || '',
+        startTime: x.startTime || '',
+        endTime: x.endTime || ''
+      };
+    }).filter(function (x) { return x.season; });
+  }
+
+  function cutoffs(kind, serverId, season) {
+    return kind === 'eliminate'
+      ? aronaCall('/api/eliminate_raid_rank/list_top', { server: rankServerCode(serverId), season: Number(season) })
+      : aronaCall('/api/v2/rank/list_top', { server: rankServerCode(serverId), season: Number(season) });
+  }
+
+  function fmtScore(n) {
+    const v = Number(n || 0);
+    return v.toLocaleString('en-US');
+  }
+
+  function rankNeed(key) {
+    return new Promise(function (resolve) {
+      const cache = RANK.seasons[key];
+      if (cache && Date.now() - cache.at < 30 * 60 * 1000) { resolve(cache.list); return; }
+      const kind = key.split('.')[0];
+      const serverId = key.split('.')[1];
+      RANK.loading[key] = true;
+      seasonList(kind, serverId).then(function (j) {
+        const list = normalizeSeasons(kind, j && j.data);
+        RANK.seasons[key] = { at: Date.now(), list: list };
+        RANK.loading[key] = false;
+        resolve(list);
+      }).catch(function () {
+        RANK.loading[key] = false;
+        resolve(RANK.seasons[key] ? RANK.seasons[key].list : null);
+      });
+    });
+  }
+
+  function rankCutoffs(key, season) {
+    const ck = key + '#' + season;
+    return new Promise(function (resolve) {
+      const cache = RANK.cut[ck];
+      if (cache && Date.now() - cache.at < 5 * 60 * 1000) { resolve(cache.data); return; }
+      const kind = key.split('.')[0];
+      const serverId = key.split('.')[1];
+      RANK.loading['c' + ck] = true;
+      cutoffs(kind, serverId, season).then(function (j) {
+        const data = (j && j.data) || [];
+        RANK.cut[ck] = { at: Date.now(), data: data };
+        RANK.loading['c' + ck] = false;
+        resolve(data);
+      }).catch(function () {
+        RANK.loading['c' + ck] = false;
+        resolve(RANK.cut[ck] ? RANK.cut[ck].data : null);
+      });
+    });
+  }
 
   function rankView() {
+    const kind = RANK.mode;
+    const key = kind + '.' + RANK.server;
     let html = '<div style="height:12px"></div>';
+
     html += '<div class="segwrap"><div class="seg">' +
-      '<button class="' + (RANK.mode !== 'eliminate' ? 'on' : '') + '" data-act="rank-mode" data-m="raid">总力战</button>' +
-      '<button class="' + (RANK.mode === 'eliminate' ? 'on' : '') + '" data-act="rank-mode" data-m="eliminate">大决战</button>' +
+      '<button class="' + (kind === 'raid' ? 'on' : '') + '" data-act="rank-mode" data-m="raid">总力战</button>' +
+      '<button class="' + (kind === 'eliminate' ? 'on' : '') + '" data-act="rank-mode" data-m="eliminate">大决战</button>' +
       '</div></div>';
-    html += '<div class="rankhost" id="rank-host">' +
-      '<div class="rankloading">正在加载档线数据…</div>' +
-      '</div>';
-    html += '<div class="actfoot">档线数据由 <b>arona.icu</b>（什亭之匣）实时提供 · 若上方显示异常，请' +
-      ' <button class="linkbtn" data-act="rank-open">用浏览器打开</button></div>';
 
-    setTimeout(mountRankFrame, 0);
-    return html;
-  }
+    html += '<div class="segwrap" style="margin-top:8px"><div class="seg">' +
+      RANK_SERVERS.map(function (s) {
+        return '<button class="' + (RANK.server === s.id ? 'on' : '') + '" data-act="rank-server" data-s="' + s.id + '">' + s.name + '</button>';
+      }).join('') +
+      '</div></div>';
 
-  function mountRankFrame() {
-    const host = document.getElementById('rank-host');
-    if (!host) { RANK.mounted = false; return; }
-    // 尺寸 = 视口 - 顶栏 - 底栏
-    const top = topbar.offsetHeight || 0;
-    const bottom = (document.querySelector('.tabbar') || {}).offsetHeight || 58;
-    host.style.height = Math.max(200, window.innerHeight - top - bottom - 8) + 'px';
-
-    let frame = host.querySelector('iframe');
-    if (!frame) {
-      frame = document.createElement('iframe');
-      frame.setAttribute('allow', 'clipboard-write');
-      frame.style.cssText = 'width:100%;height:100%;border:0;display:block;background:var(--card)';
-      frame.src = RANK_SRC[RANK.mode];
-      frame.onload = function () {
-        const ld = host.querySelector('.rankloading');
-        if (ld) ld.remove();
-      };
-      host.appendChild(frame);
-      RANK.mounted = true;
-    } else {
-      const want = RANK_SRC[RANK.mode];
-      if (frame.src !== want) frame.src = want;
+    const cache = RANK.seasons[key];
+    if (!cache) {
+      rankNeed(key).then(function () { if (state.tab === 'rank') render(); });
+      return html + '<div class="empty">正在获取档线数据…</div>';
     }
-  }
 
-  function unmountRankFrame() {
-    const host = document.getElementById('rank-host');
-    if (host) { host.innerHTML = '<div class="rankloading">正在加载档线数据…</div>'; }
-    RANK.mounted = false;
+    const list = cache.list || [];
+    if (!list.length) {
+      return html + '<div class="empty">该服务器暂无' + (kind === 'eliminate' ? '大决战' : '总力战') + '数据</div>' +
+        '<div class="actfoot">数据来自 <b>arona.icu</b>' +
+        ' <button class="linkbtn" data-act="rank-open">查看网页</button></div>';
+    }
+
+    // 默认选最新一期（开赛时间已到的最近一期）
+    const now = Date.now();
+    if (!RANK.sel[key] || !list.some(function (s) { return s.season === RANK.sel[key]; })) {
+      const started = list.filter(function (s) { const t = Date.parse(s.startTime.replace(/-/g, '/')); return !t || t <= now; });
+      RANK.sel[key] = (started[0] || list[0]).season;
+    }
+    const cur = list.filter(function (s) { return s.season === RANK.sel[key]; })[0] || list[0];
+
+    // 期数选择：横向滚动
+    html += '<div class="rankseasons">' + list.map(function (s) {
+      const on = s.season === cur.season;
+      return '<button class="rseason' + (on ? ' on' : '') + '" data-act="rank-season" data-s="' + esc(s.season) + '">' +
+        '#' + esc(s.season) + (s.boss ? '<span>' + esc(s.boss) + '</span>' : '') + '</button>';
+    }).join('') + '</div>';
+
+    html += '<div class="rankmeta">' +
+      '<b>' + esc(cur.boss || '未知 Boss') + '</b>' +
+      (cur.map ? '<span class="map">' + esc(cur.map) + '</span>' : '') +
+      '<span class="time">' + esc(cur.startTime) + ' → ' + esc(cur.endTime) + '</span>' +
+      '</div>';
+
+    const ck = key + '#' + cur.season;
+    const cut = RANK.cut[ck];
+    if (!cut) {
+      rankCutoffs(key, cur.season).then(function () { if (state.tab === 'rank') render(); });
+      html += '<div class="empty">正在获取档线…</div>';
+    } else if (!cut.data.length) {
+      html += '<div class="empty">该期暂无档线数据</div>';
+    } else {
+      html += '<div class="rankcards">' + cut.data.map(function (x) {
+        const tier = TIER_NAME[x.rank] || (x.rank + ' 名');
+        return '<div class="rankcard">' +
+          '<div class="rk-tier">' + tier + '</div>' +
+          '<div class="rk-score">' + fmtScore(x.bestRankingPoint) + '</div>' +
+          '<div class="rk-sub">第 ' + fmtScore(x.rank) + ' 名' +
+            (x.hard ? ' · ' + (HARD_NAME[x.hard] || x.hard) : '') +
+            (x.battleTime && x.battleTime !== '00:00' ? ' · ' + esc(x.battleTime) : '') +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    html += '<div class="actfoot">档线数据由 <b>arona.icu</b>（什亭之匣）提供 · ' +
+      (cache.at ? fmtDate(Math.floor(cache.at / 1000)) : '') +
+      ' <button class="linkbtn" data-act="rank-open">查看网页</button> <button class="linkbtn" data-act="rank-refresh">刷新</button></div>';
+
+    return html;
   }
 
   /* ------------------------------------------------------------ 公告 */
@@ -2077,7 +2240,7 @@
       return;
     }
     if (act === 'tab') {
-      if (state.tab === 'rank' && btn.dataset.tab !== 'rank') unmountRankFrame(); state.tab = btn.dataset.tab; render(); return; }
+ state.tab = btn.dataset.tab; render(); return; }
     if (act === 'quick') {
       const k = btn.dataset.k;
       if (k === 'all') {
@@ -2186,8 +2349,32 @@
     }
     if (act === 'pick-close') { closeStudentPicker(); return; }
     if (act === 'pick-item') { closeStudentPicker(); openDetail(String(btn.dataset.id)); return; }
-    if (act === 'rank-mode') { RANK.mode = btn.dataset.m === 'eliminate' ? 'eliminate' : 'raid'; unmountRankFrame(); if (state.tab === 'rank') { render(); } return; }
-    if (act === 'rank-open') { openExternal(RANK_SRC[RANK.mode]); return; }
+    if (act === 'rank-mode') {
+      RANK.mode = btn.dataset.m === 'eliminate' ? 'eliminate' : 'raid';
+      if (state.tab === 'rank') render();
+      return;
+    }
+    if (act === 'rank-server') {
+      RANK.server = btn.dataset.s || 'jp';
+      if (state.tab === 'rank') render();
+      return;
+    }
+    if (act === 'rank-season') {
+      RANK.sel[RANK.mode + '.' + RANK.server] = btn.dataset.s;
+      if (state.tab === 'rank') render();
+      return;
+    }
+    if (act === 'rank-refresh') {
+      const key = RANK.mode + '.' + RANK.server;
+      delete RANK.seasons[key];
+      Object.keys(RANK.cut).forEach(function (k) { if (k.indexOf(key + '#') === 0) delete RANK.cut[k]; });
+      if (state.tab === 'rank') render();
+      return;
+    }
+    if (act === 'rank-open') {
+      openExternal(RANK.mode === 'eliminate' ? 'https://arona.icu/eliminateRaidRank' : 'https://arona.icu/raidRank');
+      return;
+    }
     if (act === 'nt-open') { openNotice(btn.dataset.id); return; }
     if (act === 'doc-open') {
       openNotice(btn.dataset.id, { title: btn.dataset.title, date: btn.dataset.date, url: btn.dataset.url });

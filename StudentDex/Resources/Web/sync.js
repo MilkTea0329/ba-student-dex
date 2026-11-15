@@ -80,6 +80,16 @@
     return fetchText(url, headers).then(function (t) { return JSON.parse(t); });
   }
 
+  // 需要 POST 的接口（arona.icu 公开 API）
+  function fetchPostText(url, headers, bodyText) {
+    return rpc({ op: 'fetch', url: url, headers: headers || {}, method: 'POST', body: bodyText || '' })
+      .then(function (r) {
+        if (r.status === 0) throw new Error('network');
+        if (r.status !== 200) throw new Error('http-' + r.status);
+        return decoder ? decoder.decode(r.bytes) : String.fromCharCode.apply(null, r.bytes);
+      });
+  }
+
   // iOS 首次启动时系统会弹「允许 App 使用无线数据」，点「允许」之前所有请求都会失败。
   // 这里每隔 1 秒重试一次，用户一点允许就能立刻继续，最多等 90 秒。
   function fetchJSONRetry(url, headers, tag) {
@@ -495,6 +505,7 @@
     text: fetchText,
     json: fetchJSON,
     b64: fetchBase64,
+    post: fetchPostText,
     available: hasBridge
   };
 

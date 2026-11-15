@@ -1,0 +1,21 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "A01", "wait": 3500, "after": 300,
+      "js": "(function(){var t=document.querySelector('[data-tab=rank]');if(!t)return{noTab:true};t.click();return 'ok'})()" },
+    { "name": "A02-seasons", "after": 6000, "wait": 300,
+      "js": "(function(){return {chips:document.querySelectorAll('.rseason').length,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),errs:window.__errs}})()" },
+    { "name": "A03-shot", "after": 400, "wait": 100, "js": "'x'" },
+    { "name": "A04-server-cn", "after": 600, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-server]')).filter(function(x){return x.dataset.s==='cn'})[0];if(!b)return{noBtn:true};b.click();return 'ok'})()" },
+    { "name": "A05-cn", "after": 6000, "wait": 300,
+      "js": "(function(){return {chips:document.querySelectorAll('.rseason').length,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),errs:window.__errs}})()" },
+    { "name": "A06-eliminate", "after": 600, "wait": 100,
+      "js": "(function(){var b=Array.from(document.querySelectorAll('[data-act=rank-mode]')).filter(function(x){return x.dataset.m==='eliminate'})[0];b.click();return 'ok'})()" },
+    { "name": "A07-elim", "after": 6000, "wait": 300,
+      "js": "(function(){return {chips:document.querySelectorAll('.rseason').length,meta:(document.querySelector('.rankmeta')||{}).innerText,tiers:Array.from(document.querySelectorAll('.rankcard')).map(function(c){return c.innerText.replace(/\\n/g,' | ')}),empty:(document.querySelector('.empty')||{}).textContent,errs:window.__errs}})()" },
+    { "name": "A08-shot", "after": 400, "wait": 100, "js": "'x'" }
+  ]
+}

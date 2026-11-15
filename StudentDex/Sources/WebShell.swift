@@ -34,7 +34,8 @@ final class BridgeHandler: NSObject, WKScriptMessageHandler {
         "www.gamekee.com",
         "api-cdn.gamekee.com",
         "cdnimg-v2.gamekee.com",
-        "api.github.com"
+        "api.github.com",
+        "api.arona.icu"
     ]
 
     private static let userAgent =
@@ -73,6 +74,12 @@ final class BridgeHandler: NSObject, WKScriptMessageHandler {
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
+        if let method = body["method"] as? String, !method.isEmpty {
+            request.httpMethod = method.uppercased()
+        }
+        if let payload = body["body"] as? String, !payload.isEmpty {
+            request.httpBody = payload.data(using: .utf8)
+        }
         request.setValue(BridgeHandler.userAgent, forHTTPHeaderField: "User-Agent")
         if let headers = body["headers"] as? [String: String] {
             for (key, value) in headers {

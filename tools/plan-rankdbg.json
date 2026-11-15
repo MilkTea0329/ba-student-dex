@@ -1,0 +1,13 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "D1", "wait": 3000, "after": 200,
+      "js": "(function(){return {bridge:!!(window.BAFetch&&window.BAFetch.available()),hasPost:!!(window.BAFetch&&window.BAFetch.post)}})()" },
+    { "name": "D2-raw-fetch", "after": 6000, "wait": 200,
+      "js": "(function(){return fetch('https://api.arona.icu/api/season/list',{method:'POST',headers:{'Content-Type':'application/json','Content-Language':'zh-CN','ba-location':'false','Authorization':'ba-token uuz:uuz'},body:JSON.stringify({server:3})}).then(function(r){return r.text().then(function(t){return {status:r.status,body:t.slice(0,120)}})}).catch(function(e){return {error:String(e)}})})()" },
+    { "name": "D3-bridge-post", "after": 5000, "wait": 200,
+      "js": "(function(){if(!window.BAFetch||!window.BAFetch.post)return{noPost:true};return window.BAFetch.post('https://api.arona.icu/api/season/list',{'Content-Type':'application/json','Authorization':'ba-token uuz:uuz','Referer':'https://arona.icu'},JSON.stringify({server:3})).then(function(t){return {ok:true,body:String(t).slice(0,120)}}).catch(function(e){return {err:String(e)}})})()" }
+  ]
+}
