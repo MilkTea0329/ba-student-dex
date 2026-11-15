@@ -1,0 +1,18 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "H1", "wait": 3200, "after": 200,
+      "js": "(function(){document.querySelector('[data-act=filter-open]').click();return 'ok'})()" },
+    { "name": "H2-striker", "after": 700, "wait": 200,
+      "js": "(function(){var c=document.querySelector('.fchip[data-k=tactic][data-v=STRIKER]');c.click();return new Promise(function(r){setTimeout(function(){r({label:document.querySelector('.sheet-foot .btn.primary').textContent})},500)})})()" },
+    { "name": "H3-special", "after": 600, "wait": 200,
+      "js": "(function(){var st=document.querySelector('.fchip[data-k=tactic][data-v=STRIKER]');st.click();var sp=document.querySelector('.fchip[data-k=tactic][data-v=SPECIAL]');sp.click();return new Promise(function(r){setTimeout(function(){r({label:document.querySelector('.sheet-foot .btn.primary').textContent})},500)})})()" },
+    { "name": "H4-close-more", "after": 500, "wait": 100,
+      "js": "(function(){var b=document.querySelector('.sheet-foot .btn.primary');if(b)b.click();setTimeout(function(){document.querySelector('[data-tab=more]').click();},400);return 'ok'})()" },
+    { "name": "H5-more", "after": 1200, "wait": 200,
+      "js": "(function(){var rows=Array.from(document.querySelectorAll('.rowlink')).map(function(x){return x.textContent.replace(/\\s+/g,' ').trim()});return {tacticRow:rows.filter(function(t){return t.indexOf('突击')>=0})[0],build:rows.filter(function(t){return t.indexOf('构建')>=0})[0],errs:window.__errs}})()" },
+    { "name": "H6-shot", "after": 400, "wait": 100, "js": "'x'" }
+  ]
+}

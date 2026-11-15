@@ -1,0 +1,11 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];",
+  "shots": [
+    { "name": "T1", "wait": 2500, "after": 200,
+      "js": "(function(){var t={};window.BA_INDEX.forEach(function(s){var k=s.tactic||'(空)';t[k]=(t[k]||0)+1});return {total:window.BA_INDEX.length,dist:t}})()" },
+    { "name": "T2-after-sync", "wait": 45000, "after": 200,
+      "js": "(function(){var t={};window.BA_INDEX.forEach(function(s){var k=s.tactic||'(空)';t[k]=(t[k]||0)+1});var miss=window.BA_INDEX.filter(function(s){return s.tactic!=='STRIKER'&&s.tactic!=='SPECIAL'}).map(function(s){return s.name+'['+(s.tactic||'空')+']'});return {total:window.BA_INDEX.length,dist:t,weird:miss}})()" }
+  ]
+}

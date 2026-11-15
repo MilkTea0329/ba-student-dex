@@ -1,0 +1,13 @@
+﻿{
+  "url": "http://127.0.0.1:8123/_test-update.html",
+  "width": 390, "height": 844, "dpr": 2, "outDir": "shots/reg",
+  "preScript": "window.__errs=[];window.addEventListener('error',function(e){window.__errs.push(e.message)});",
+  "shots": [
+    { "name": "G1", "wait": 3000, "after": 200,
+      "js": "(function(){var sum=window.BA_INDEX.filter(function(x){return x.id===148495})[0];var full=window.BA_STUDENTS[148495];var bad=Object.assign({},sum);delete bad.tactic;delete bad.position;var f=Object.assign({},full,{isUpdated:true,updatedSyncedAt:Date.now(),tactic:'',position:''});localStorage.setItem('ba_test_store',JSON.stringify({version:1,students:{'148495':f, '100051':f},index:[bad,Object.assign({},window.BA_INDEX.filter(function(x){return x.id===100051})[0],{tactic:'',position:''})],stamps:{'148495':1}}));return {seeded:true,tactic:sum.tactic}})()" },
+    { "name": "G2-reload", "url": "http://127.0.0.1:8123/_test-update.html?keep=1", "wait": 6000, "after": 300,
+      "js": "(function(){var t={};window.BA_INDEX.forEach(function(s){var k=s.tactic||'(空)';t[k]=(t[k]||0)+1});var bad=window.BA_INDEX.filter(function(s){return !s.tactic}).map(function(s){return s.name});return {total:window.BA_INDEX.length,dist:t,empty:bad}})()" },
+    { "name": "G3-more", "after": 400, "wait": 100,
+      "js": "(function(){document.querySelector('[data-tab=more]').click();return new Promise(function(r){setTimeout(function(){var rows=Array.from(document.querySelectorAll('.rowlink')).map(function(x){return x.textContent.replace(/\\s+/g,' ').trim()});r({row:rows.filter(function(t){return t.indexOf('突击')>=0})[0]})},700)})})()" }
+  ]
+}

@@ -4,7 +4,7 @@
 
   const APP_NAME = '什亭之匣';
   const APP_VERSION = 'V1.0.3';
-  const BUILD_TAG = '2026-11-15 21:30';   // 每次发版更新，用于排查「装的是哪一版」
+  const BUILD_TAG = '2026-11-15 22:05';   // 每次发版更新，用于排查「装的是哪一版」
 
   // 内置数据（打包进 App），联网同步到的新学生会追加到这里
   const INDEX = (window.BA_INDEX || []).slice();
@@ -1307,6 +1307,8 @@
     const schools = uniq(INDEX.map(function (s) { return s.school; })).length;
     const r3 = INDEX.filter(function (s) { return s.rarity === 3; }).length;
     const strikes = INDEX.filter(function (s) { return s.tactic === 'STRIKER'; }).length;
+    const specials = INDEX.filter(function (s) { return s.tactic === 'SPECIAL'; }).length;
+    const unknownTactic = INDEX.length - strikes - specials;
     return '' +
       '<div class="section-title">数据总览</div>' +
       '<div class="stat-cards">' +
@@ -1329,7 +1331,8 @@
         '<button class="rowlink" data-act="check-update" style="width:100%;text-align:left">' +
           '<span>检查更新</span><span class="r" id="update-status">›</span></button>' +
         '<div class="rowlink"><span>学生总数</span><span class="r">' + INDEX.length + ' 名</span></div>' +
-        '<div class="rowlink"><span>突击 / 支援</span><span class="r">' + strikes + ' / ' + (INDEX.length - strikes) + '</span></div>' +
+        '<div class="rowlink"><span>突击 / 支援</span><span class="r">' + strikes + ' / ' + specials +
+          (unknownTactic > 0 ? '（另有 ' + unknownTactic + ' 名未分类）' : '') + '</span></div>' +
         '<div class="rowlink"><span>数据来源</span><span class="r">GameKee 蔚蓝档案 WIKI</span></div>' +
         '<div class="rowlink"><span>最新实装</span><span class="r">' + (latestReleaseDate() || '—') + '</span></div>' +
       '</div>' +
@@ -2681,7 +2684,16 @@
       if (BY_ID[summary.id]) {
         // 已存在：这是「资料有改动」的学生，更新摘要与详情
         if (full && full.isUpdated) {
-          Object.assign(BY_ID[summary.id], summary);
+          // 同步来的摘要在 App 内可能解析不出战术作用/站位（图标映射缺失），
+          // 先用旧值兜底再合并，避免把列表项上的字段冲成空值
+          const prev = BY_ID[summary.id];
+          const next = Object.assign({}, summary);
+          if (prev) {
+            ['tactic', 'position', 'avatar', 'tacticImage', 'positionImage'].forEach(function (k) {
+              if (!next[k] && prev[k]) next[k] = prev[k];
+            });
+          }
+          Object.assign(prev, next);
           const old = STUDENTS[summary.id];
           const merged = Object.assign({}, old, full);
           if (old) {
@@ -2694,6 +2706,8 @@
             if (!full.tactic && old.tactic) merged.tactic = old.tactic;
           }
           STUDENTS[summary.id] = merged;
+          if (!BY_ID[summary.id].tactic && merged.tactic) BY_ID[summary.id].tactic = merged.tactic;
+          if (!BY_ID[summary.id].position && merged.position) BY_ID[summary.id].position = merged.position;
           BY_ID[summary.id].isUpdated = full.isUpdated;
           BY_ID[summary.id].updatedSyncedAt = full.updatedSyncedAt;
           updated++;
